@@ -1,0 +1,268 @@
+export type AppLocale = 'en' | 'pt-BR'
+
+export type MessageKey =
+  | 'boot.sequence'
+  | 'boot.fault'
+  | 'boot.retry'
+  | 'boot.bridgeMissing'
+  | 'brand.subtitle'
+  | 'brand.subtitleMulti'
+  | 'status.linkUp'
+  | 'status.handshake'
+  | 'status.fault'
+  | 'status.idle'
+  | 'ops.autoRelink'
+  | 'ops.reloadProfiles'
+  | 'ops.killAll'
+  | 'ops.parkTray'
+  | 'ops.startWithLinux'
+  | 'ops.language'
+  | 'ops.desk'
+  | 'ops.noneActive'
+  | 'ops.deskSummary'
+  | 'ops.newProfile'
+  | 'ops.importConf'
+  | 'profiles.emptyTitle'
+  | 'profiles.emptyBody'
+  | 'profiles.live'
+  | 'profiles.handshake'
+  | 'profiles.bringUp'
+  | 'profiles.killLink'
+  | 'profiles.noUser'
+  | 'profiles.edit'
+  | 'profiles.delete'
+  | 'profiles.deleteConfirm'
+  | 'console.title'
+  | 'console.working'
+  | 'console.clear'
+  | 'console.empty'
+  | 'setup.missing'
+  | 'setup.needsClient'
+  | 'setup.looksLike'
+  | 'setup.installPlan'
+  | 'setup.noAutoInstall'
+  | 'setup.installNow'
+  | 'setup.working'
+  | 'setup.recheck'
+  | 'setup.stillMissing'
+  | 'setup.installFailed'
+  | 'tray.show'
+  | 'tray.disconnectAll'
+  | 'tray.refresh'
+  | 'tray.quit'
+  | 'notify.connectedTitle'
+  | 'notify.connectedBody'
+  | 'notify.disconnectedTitle'
+  | 'notify.disconnectedBody'
+  | 'form.createTitle'
+  | 'form.editTitle'
+  | 'form.importTitle'
+  | 'form.id'
+  | 'form.idHint'
+  | 'form.host'
+  | 'form.port'
+  | 'form.username'
+  | 'form.password'
+  | 'form.passwordHint'
+  | 'form.trustedCert'
+  | 'form.trustedCertHint'
+  | 'form.realm'
+  | 'form.optional'
+  | 'form.persistent'
+  | 'form.persistentHint'
+  | 'form.setDns'
+  | 'form.setRoutes'
+  | 'form.save'
+  | 'form.saving'
+  | 'form.cancel'
+
+type Dict = Record<MessageKey, string>
+
+const en: Dict = {
+  'boot.sequence': 'boot sequence…',
+  'boot.fault': 'Boot fault',
+  'boot.retry': 'Retry',
+  'boot.bridgeMissing':
+    'Electron bridge missing (window.myVpns). Run with npm run dev — do not open localhost in the browser alone.',
+  'brand.subtitle': 'OpenForti control desk',
+  'brand.subtitleMulti': 'OpenForti control desk · multi-link',
+  'status.linkUp': 'LINK UP',
+  'status.handshake': 'HANDSHAKE',
+  'status.fault': 'FAULT',
+  'status.idle': 'IDLE',
+  'ops.autoRelink': 'Auto-relink',
+  'ops.reloadProfiles': 'Reload profiles',
+  'ops.killAll': 'Kill all links',
+  'ops.parkTray': 'Park in tray',
+  'ops.startWithLinux': 'Start with Linux',
+  'ops.language': 'Language',
+  'ops.desk': 'Desk',
+  'ops.noneActive': 'none active',
+  'ops.deskSummary': '{up} up · {handshake} handshake',
+  'ops.newProfile': 'New profile',
+  'ops.importConf': 'Import .conf',
+  'profiles.emptyTitle': 'No profiles',
+  'profiles.emptyBody':
+    'Drop *.conf files into /etc/openfortivpn/ and hit reload — or create / import here.',
+  'profiles.live': '● live · {uptime}',
+  'profiles.handshake': 'handshake…',
+  'profiles.bringUp': 'Bring up',
+  'profiles.killLink': 'Kill link',
+  'profiles.noUser': 'no-user',
+  'profiles.edit': 'Edit',
+  'profiles.delete': 'Delete',
+  'profiles.deleteConfirm': 'Delete profile "{id}" from /etc/openfortivpn?',
+  'console.title': 'Console // {label}',
+  'console.working': ' · working',
+  'console.clear': 'Clear',
+  'console.empty':
+    'Waiting for tunnel I/O. You can bring up multiple VPNs at once — each keeps its own link.',
+  'setup.missing': 'Missing dependency',
+  'setup.needsClient':
+    'My VPNs needs the OpenForti client to open SSL tunnels. Your machine looks like',
+  'setup.looksLike': '{distro}',
+  'setup.installPlan': 'Install plan · {family}',
+  'setup.noAutoInstall': 'No automatic installer for this distro',
+  'setup.installNow': 'Install now',
+  'setup.working': 'Working…',
+  'setup.recheck': 'I installed it — recheck',
+  'setup.stillMissing': 'openfortivpn still missing from PATH.',
+  'setup.installFailed': 'Could not install openfortivpn.',
+  'tray.show': 'Show My VPNs',
+  'tray.disconnectAll': 'Disconnect all',
+  'tray.refresh': 'Refresh profiles',
+  'tray.quit': 'Quit',
+  'notify.connectedTitle': 'VPN connected',
+  'notify.connectedBody': 'Tunnel {id} is up.',
+  'notify.disconnectedTitle': 'VPN disconnected',
+  'notify.disconnectedBody': 'Tunnel {id} ended.',
+  'form.createTitle': 'New connection',
+  'form.editTitle': 'Edit connection',
+  'form.importTitle': 'Import connection',
+  'form.id': 'Profile id',
+  'form.idHint': 'Filename under /etc/openfortivpn (a-z, 0-9, - _)',
+  'form.host': 'Host',
+  'form.port': 'Port',
+  'form.username': 'Username',
+  'form.password': 'Password',
+  'form.passwordHint': 'Stored in the .conf (same as your current setup)',
+  'form.trustedCert': 'Trusted cert',
+  'form.trustedCertHint': 'SHA256 fingerprint from openfortivpn / gateway',
+  'form.realm': 'Realm',
+  'form.optional': 'Optional',
+  'form.persistent': 'Persistent (sec)',
+  'form.persistentHint': '0 = off · reconnect interval used by openfortivpn',
+  'form.setDns': 'set-dns',
+  'form.setRoutes': 'set-routes',
+  'form.save': 'Save to /etc',
+  'form.saving': 'Saving…',
+  'form.cancel': 'Cancel',
+}
+
+const ptBR: Dict = {
+  'boot.sequence': 'sequência de boot…',
+  'boot.fault': 'Falha no boot',
+  'boot.retry': 'Tentar de novo',
+  'boot.bridgeMissing':
+    'Bridge do Electron ausente (window.myVpns). Rode com npm run dev — não abra só o localhost no navegador.',
+  'brand.subtitle': 'Mesa de controle OpenForti',
+  'brand.subtitleMulti': 'Mesa de controle OpenForti · multi-link',
+  'status.linkUp': 'LINK UP',
+  'status.handshake': 'HANDSHAKE',
+  'status.fault': 'FALHA',
+  'status.idle': 'OCIOSO',
+  'ops.autoRelink': 'Auto-reconectar',
+  'ops.reloadProfiles': 'Recarregar perfis',
+  'ops.killAll': 'Derrubar todos',
+  'ops.parkTray': 'Ir para a bandeja',
+  'ops.startWithLinux': 'Iniciar com o Linux',
+  'ops.language': 'Idioma',
+  'ops.desk': 'Mesa',
+  'ops.noneActive': 'nenhuma ativa',
+  'ops.deskSummary': '{up} ativas · {handshake} handshake',
+  'ops.newProfile': 'Novo perfil',
+  'ops.importConf': 'Importar .conf',
+  'profiles.emptyTitle': 'Nenhum perfil',
+  'profiles.emptyBody':
+    'Coloque *.conf em /etc/openfortivpn/ e recarregue — ou crie / importe por aqui.',
+  'profiles.live': '● ao vivo · {uptime}',
+  'profiles.handshake': 'handshake…',
+  'profiles.bringUp': 'Conectar',
+  'profiles.killLink': 'Desligar',
+  'profiles.noUser': 'sem-usuário',
+  'profiles.edit': 'Editar',
+  'profiles.delete': 'Excluir',
+  'profiles.deleteConfirm': 'Excluir o perfil "{id}" de /etc/openfortivpn?',
+  'console.title': 'Console // {label}',
+  'console.working': ' · trabalhando',
+  'console.clear': 'Limpar',
+  'console.empty':
+    'Aguardando I/O do túnel. Dá pra subir várias VPNs ao mesmo tempo — cada uma mantém o próprio link.',
+  'setup.missing': 'Dependência ausente',
+  'setup.needsClient':
+    'O My VPNs precisa do cliente OpenForti para abrir túneis SSL. Sua máquina parece',
+  'setup.looksLike': '{distro}',
+  'setup.installPlan': 'Plano de instalação · {family}',
+  'setup.noAutoInstall': 'Instalação automática indisponível nesta distro',
+  'setup.installNow': 'Instalar agora',
+  'setup.working': 'Trabalhando…',
+  'setup.recheck': 'Já instalei — verificar de novo',
+  'setup.stillMissing': 'openfortivpn ainda não está no PATH.',
+  'setup.installFailed': 'Não foi possível instalar o openfortivpn.',
+  'tray.show': 'Mostrar My VPNs',
+  'tray.disconnectAll': 'Desconectar todas',
+  'tray.refresh': 'Atualizar perfis',
+  'tray.quit': 'Sair',
+  'notify.connectedTitle': 'VPN conectada',
+  'notify.connectedBody': 'Túnel {id} está ativo.',
+  'notify.disconnectedTitle': 'VPN desconectada',
+  'notify.disconnectedBody': 'Túnel {id} encerrou.',
+  'form.createTitle': 'Nova conexão',
+  'form.editTitle': 'Editar conexão',
+  'form.importTitle': 'Importar conexão',
+  'form.id': 'ID do perfil',
+  'form.idHint': 'Nome do arquivo em /etc/openfortivpn (a-z, 0-9, - _)',
+  'form.host': 'Host',
+  'form.port': 'Porta',
+  'form.username': 'Usuário',
+  'form.password': 'Senha',
+  'form.passwordHint': 'Fica no .conf (igual ao setup atual)',
+  'form.trustedCert': 'Trusted cert',
+  'form.trustedCertHint': 'Fingerprint SHA256 do openfortivpn / gateway',
+  'form.realm': 'Realm',
+  'form.optional': 'Opcional',
+  'form.persistent': 'Persistent (seg)',
+  'form.persistentHint': '0 = off · intervalo de reconexão do openfortivpn',
+  'form.setDns': 'set-dns',
+  'form.setRoutes': 'set-routes',
+  'form.save': 'Salvar em /etc',
+  'form.saving': 'Salvando…',
+  'form.cancel': 'Cancelar',
+}
+
+const catalogs: Record<AppLocale, Dict> = {
+  en,
+  'pt-BR': ptBR,
+}
+
+export function translate(
+  locale: AppLocale,
+  key: MessageKey,
+  vars?: Record<string, string | number>,
+): string {
+  let text = catalogs[locale][key] ?? catalogs.en[key] ?? key
+  if (vars) {
+    for (const [name, value] of Object.entries(vars)) {
+      text = text.replaceAll(`{${name}}`, String(value))
+    }
+  }
+  return text
+}
+
+export function listLocales(): AppLocale[] {
+  return ['en', 'pt-BR']
+}
+
+export function catalogKeys(locale: AppLocale): MessageKey[] {
+  return Object.keys(catalogs[locale]) as MessageKey[]
+}

@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Syne", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Share Tech Mono", ui-monospace, monospace;
+
+  --color-paper: #e3e7ec;
+  --color-sheet: #f4f6f8;
+  --color-ink: #14161a;
+  --color-mute: #5c6570;
+  --color-line: #14161a;
+  --color-flare: #ff4d00;
+  --color-live: #007a53;
+  --color-fault: #b42318;
+  --color-hold: #9a6700;
+}
+
+:root {
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-display);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+  background-color: var(--color-paper);
+  background-image:
+    linear-gradient(90deg, rgba(20, 22, 26, 0.04) 1px, transparent 1px),
+    linear-gradient(rgba(20, 22, 26, 0.04) 1px, transparent 1px),
+    radial-gradient(ellipse 80% 50% at 0% 0%, rgba(255, 77, 0, 0.08), transparent 55%);
+  background-size:
+    28px 28px,
+    28px 28px,
+    100% 100%;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) rotate(-0.4deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0);
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes blink-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.stamp-in {
+  animation: stamp-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.sweep-in {
+  transform-origin: left center;
+  animation: sweep 0.7s ease both;
+}
+
+.blink-live {
+  animation: blink-live 1.4s steps(2, end) infinite;
+}
+
+.console-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.console-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-ink);
+}
+
+.console-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.field-input {
+  width: 100%;
+  border: 2px solid var(--color-ink);
+  background: var(--color-paper);
+  padding: 0.65rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--color-ink);
+  outline: none;
+}
+
+.field-input:focus {
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--color-flare);
+}
+
+.field-input:disabled {
+  opacity: 0.55;
+}
