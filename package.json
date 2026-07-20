@@ -1,6 +1,7 @@
 {
   "name": "my-vpns",
   "productName": "My VPNs",
+  "desktopName": "my-vpns",
   "private": true,
   "version": "1.0.2",
   "description": "Gerenciador gráfico para conexões OpenFortiVPN",
@@ -86,7 +87,6 @@
       ],
       "category": "Network",
       "executableName": "my-vpns",
-      "desktopName": "my-vpns",
       "syncDesktopName": true,
       "maintainer": "LucasCavalheri <LucasCavalheri@users.noreply.github.com>",
       "icon": "build/icon.png",
@@ -97,8 +97,7 @@
           "Name": "My VPNs",
           "Comment": "Gerenciador OpenFortiVPN",
           "Categories": "Network;Security;",
-          "StartupWMClass": "my-vpns",
-          "Exec": "/usr/bin/my-vpns %U"
+          "StartupWMClass": "my-vpns"
         }
       }
     },
