@@ -31,8 +31,15 @@ import {
   saveProfileDraft,
   type VpnProfileDraft,
 } from './profiles'
+import { checkForAppUpdate, type UpdateInfo } from './updates'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Ubuntu 24+ often blocks the Electron SUID sandbox; without this the app
+// exits immediately when launched from the app menu.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox')
+}
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 
@@ -352,6 +359,32 @@ function registerIpc(): void {
     }
 
     return draftFromImportedFile(picked.filePaths[0])
+  })
+
+  ipcMain.handle('updates:check', async (): Promise<UpdateInfo | null> => {
+    try {
+      const update = await checkForAppUpdate(app.getVersion())
+      if (!update) return null
+      const dismissed = loadSettings().dismissedUpdateVersion
+      if (dismissed && dismissed === update.latest) return null
+      return update
+    } catch (err) {
+      console.error('[my-vpns] update check failed:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('updates:dismiss', (_e, version: string) => {
+    saveSettings({ dismissedUpdateVersion: String(version || '') })
+    return { ok: true }
+  })
+
+  ipcMain.handle('updates:open', async (_e, url: string) => {
+    if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+      await shell.openExternal(url)
+      return { ok: true }
+    }
+    return { ok: false }
   })
 }
 

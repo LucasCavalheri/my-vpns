@@ -5,6 +5,8 @@ export type AppLocale = 'en' | 'pt-BR'
 
 export interface AppSettings {
   locale: AppLocale
+  /** Last update version the user dismissed in the in-app banner. */
+  dismissedUpdateVersion?: string
 }
 
 const DEFAULTS: AppSettings = {
@@ -34,7 +36,11 @@ export function loadSettings(): AppSettings {
       parsed.locale === 'pt-BR' || parsed.locale === 'en'
         ? parsed.locale
         : detectLocale()
-    return { ...DEFAULTS, locale }
+    const dismissedUpdateVersion =
+      typeof parsed.dismissedUpdateVersion === 'string'
+        ? parsed.dismissedUpdateVersion
+        : undefined
+    return { ...DEFAULTS, locale, dismissedUpdateVersion }
   } catch {
     return { ...DEFAULTS, locale: detectLocale() }
   }

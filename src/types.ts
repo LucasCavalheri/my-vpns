@@ -85,6 +85,12 @@ export interface AppSettingsView {
   autostartPath: string
 }
 
+export interface UpdateInfo {
+  current: string
+  latest: string
+  url: string
+}
+
 export interface MyVpnsApi {
   getProfiles: () => Promise<VpnProfile[]>
   refreshProfiles: () => Promise<VpnProfile[]>
@@ -112,6 +118,9 @@ export interface MyVpnsApi {
     draft?: VpnProfileDraft
     canceled?: boolean
   }>
+  checkForUpdate: () => Promise<UpdateInfo | null>
+  dismissUpdate: (version: string) => Promise<{ ok: boolean }>
+  openUpdateUrl: (url: string) => Promise<{ ok: boolean }>
   onState: (cb: (state: VpnState) => void) => () => void
   onLog: (cb: (line: string) => void) => () => void
   onProfiles: (cb: (profiles: VpnProfile[]) => void) => () => void

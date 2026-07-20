@@ -5,5 +5,8 @@ rm -f /usr/lib/my-vpns/run-vpn.sh
 rm -f /usr/lib/my-vpns/stop-vpn.sh
 rmdir /usr/lib/my-vpns 2>/dev/null || true
 rm -f /usr/share/polkit-1/actions/dev.cavallheri.myvpns.policy
+rm -f /usr/bin/my-vpns
+rm -f /etc/apt/sources.list.d/my-vpns.list
+rm -f /etc/apparmor.d/my-vpns
 
 exit 0

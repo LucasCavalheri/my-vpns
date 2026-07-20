@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AppLocale,
   DependencyStatus,
+  UpdateInfo,
   VpnProfile,
   VpnProfileDraft,
   VpnSession,
@@ -99,6 +100,7 @@ function Desk() {
   } | null>(null)
   const [editorBusy, setEditorBusy] = useState(false)
   const [editorError, setEditorError] = useState<string | null>(null)
+  const [update, setUpdate] = useState<UpdateInfo | null>(null)
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -159,6 +161,10 @@ function Desk() {
         setState(nextState)
       },
     )
+
+    void api.checkForUpdate().then((info) => {
+      if (info) setUpdate(info)
+    })
 
     const offState = api.onState(setState)
     const offProfiles = api.onProfiles(setProfiles)
@@ -308,6 +314,41 @@ function Desk() {
 
   return (
     <div className="relative flex h-full flex-col text-ink">
+      {update ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-flare px-5 py-3">
+          <div className="min-w-0">
+            <p className="font-mono text-xs tracking-[0.14em] uppercase">
+              {t('update.available', {
+                latest: update.latest,
+                current: update.current,
+              })}
+            </p>
+            <p className="mt-1 font-mono text-[11px] text-ink/80">
+              {t('update.aptHint')}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="border-2 border-ink bg-sheet px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] uppercase"
+              onClick={() => void window.myVpns?.openUpdateUrl(update.url)}
+            >
+              {t('update.open')}
+            </button>
+            <button
+              type="button"
+              className="border-2 border-ink px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] uppercase"
+              onClick={() => {
+                void window.myVpns?.dismissUpdate(update.latest)
+                setUpdate(null)
+              }}
+            >
+              {t('update.dismiss')}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <header className="stamp-in border-b-2 border-ink px-5 pb-4 pt-5">
         <div className="flex items-end justify-between gap-4">
           <div>

@@ -2,7 +2,7 @@
   "name": "my-vpns",
   "productName": "My VPNs",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Gerenciador gráfico para conexões OpenFortiVPN",
   "author": {
     "name": "LucasCavalheri",
@@ -18,10 +18,10 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && electron-builder --linux deb rpm",
-    "build:deb": "tsc -b && vite build && electron-builder --linux deb",
-    "build:rpm": "tsc -b && vite build && electron-builder --linux rpm",
-    "build:dir": "tsc -b && vite build && electron-builder --linux deb --dir",
+    "build": "tsc -b && vite build && electron-builder --linux deb rpm --publish never",
+    "build:deb": "tsc -b && vite build && electron-builder --linux deb --publish never",
+    "build:rpm": "tsc -b && vite build && electron-builder --linux rpm --publish never",
+    "build:dir": "tsc -b && vite build && electron-builder --linux deb --dir --publish never",
     "preview": "vite preview",
     "lint": "oxlint",
     "test": "vitest run",
@@ -86,6 +86,8 @@
       ],
       "category": "Network",
       "executableName": "my-vpns",
+      "desktopName": "my-vpns",
+      "syncDesktopName": true,
       "maintainer": "LucasCavalheri <LucasCavalheri@users.noreply.github.com>",
       "icon": "build/icon.png",
       "synopsis": "Gerenciador gráfico OpenFortiVPN",
@@ -95,7 +97,8 @@
           "Name": "My VPNs",
           "Comment": "Gerenciador OpenFortiVPN",
           "Categories": "Network;Security;",
-          "StartupWMClass": "my-vpns"
+          "StartupWMClass": "my-vpns",
+          "Exec": "/usr/bin/my-vpns %U"
         }
       }
     },

@@ -75,6 +75,10 @@ export type MessageKey =
   | 'form.save'
   | 'form.saving'
   | 'form.cancel'
+  | 'update.available'
+  | 'update.aptHint'
+  | 'update.open'
+  | 'update.dismiss'
 
 type Dict = Record<MessageKey, string>
 
@@ -157,6 +161,10 @@ const en: Dict = {
   'form.save': 'Save to /etc',
   'form.saving': 'Saving…',
   'form.cancel': 'Cancel',
+  'update.available': 'Update available · {latest} (you have {current})',
+  'update.aptHint': 'sudo apt update && sudo apt install --only-upgrade my-vpns',
+  'update.open': 'Release notes',
+  'update.dismiss': 'Dismiss',
 }
 
 const ptBR: Dict = {
@@ -238,6 +246,10 @@ const ptBR: Dict = {
   'form.save': 'Salvar em /etc',
   'form.saving': 'Salvando…',
   'form.cancel': 'Cancelar',
+  'update.available': 'Atualização disponível · {latest} (você tem {current})',
+  'update.aptHint': 'sudo apt update && sudo apt install --only-upgrade my-vpns',
+  'update.open': 'Notas da release',
+  'update.dismiss': 'Dispensar',
 }
 
 const catalogs: Record<AppLocale, Dict> = {

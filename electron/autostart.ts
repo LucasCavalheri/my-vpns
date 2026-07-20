@@ -12,7 +12,11 @@ export function resolveAutostartExec(): string {
   const { app } = require('electron') as typeof import('electron')
 
   if (app.isPackaged) {
-    return `"${process.execPath}" --hidden`
+    // Prefer the postinst wrapper (handles spaces + --no-sandbox)
+    if (fs.existsSync('/usr/bin/my-vpns')) {
+      return '/usr/bin/my-vpns --hidden'
+    }
+    return `"${process.execPath}" --no-sandbox --hidden`
   }
 
   const electronBin = process.execPath

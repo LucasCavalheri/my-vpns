@@ -4,6 +4,7 @@ import type {
   DependencyStatus,
   InstallResult,
   ProfileWriteResult,
+  UpdateInfo,
   VpnProfile,
   VpnProfileDraft,
   VpnState,
@@ -42,6 +43,9 @@ export interface MyVpnsApi {
     draft?: VpnProfileDraft
     canceled?: boolean
   }>
+  checkForUpdate: () => Promise<UpdateInfo | null>
+  dismissUpdate: (version: string) => Promise<{ ok: boolean }>
+  openUpdateUrl: (url: string) => Promise<{ ok: boolean }>
   onState: (cb: (state: VpnState) => void) => () => void
   onLog: (cb: (line: string) => void) => () => void
   onProfiles: (cb: (profiles: VpnProfile[]) => void) => () => void
@@ -68,6 +72,9 @@ const api: MyVpnsApi = {
     ipcRenderer.invoke('profiles:save', draft, overwrite ?? false),
   deleteProfile: (id) => ipcRenderer.invoke('profiles:delete', id),
   importProfileDialog: () => ipcRenderer.invoke('profiles:importDialog'),
+  checkForUpdate: () => ipcRenderer.invoke('updates:check'),
+  dismissUpdate: (version) => ipcRenderer.invoke('updates:dismiss', version),
+  openUpdateUrl: (url) => ipcRenderer.invoke('updates:open', url),
   onState: (cb) => {
     const listener = (_: Electron.IpcRendererEvent, state: VpnState) => cb(state)
     ipcRenderer.on('vpn:state', listener)
