@@ -38,9 +38,12 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 
 ## 🚀 Installation
 
-### From release packages
+### From GitHub Releases (recommended)
 
-Grab artifacts from [Releases](https://github.com/LucasCavalheri/my-vpns/releases) (or build them yourself).
+1. Open [Releases](https://github.com/LucasCavalheri/my-vpns/releases)
+2. Download either:
+   - `my-vpns_*_amd64.deb` or `my-vpns-*.x86_64.rpm` — installable packages
+   - **Source code** (zip/tar.gz) — always attached by GitHub for every tag/release
 
 #### Debian / Ubuntu / Mint
 
@@ -59,6 +62,32 @@ Then launch **My VPNs** from your app menu. Packaged binary typically lives at:
 ```bash
 "/opt/My VPNs/my-vpns"
 ```
+
+### How to publish a release
+
+**Automatic (preferred):** push a version tag — CI builds `.deb`/`.rpm` and creates the GitHub Release.
+
+```bash
+# 1) bump version in package.json (e.g. 1.0.1)
+npm version patch   # or: minor / major
+# 2) push commit + tag
+git push origin master --follow-tags
+```
+
+That triggers [`.github/workflows/release.yml`](.github/workflows/release.yml) on tags like `v1.0.1`.
+
+**Manual (from your machine):**
+
+```bash
+npm run build
+gh release create v1.0.1 \
+  release/my-vpns_*_amd64.deb \
+  release/my-vpns-*.x86_64.rpm \
+  --title "My VPNs v1.0.1" \
+  --generate-notes
+```
+
+> GitHub always offers **Source code** downloads on the release page for the tagged commit — you don’t upload those yourself.
 
 ### Requirements
 
@@ -285,7 +314,7 @@ Please include:
 - [x] Create / import / edit profiles
 - [x] Multi-VPN concurrent sessions
 - [x] Start with Linux (autostart)
-- [ ] GitHub Actions release pipeline
+- [x] GitHub Actions release pipeline (tag → `.deb` / `.rpm`)
 - [ ] Stronger health checks / richer log parsing
 - [ ] Flatpak / AppImage experiments
 

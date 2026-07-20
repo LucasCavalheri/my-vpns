@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install system deps for RPM packaging
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build .deb + .rpm
+        run: npm run build
+        env:
+          # electron-builder may need this on CI
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Collect artifacts
+        id: arts
+        run: |
+          set -euo pipefail
+          mkdir -p dist-release
+          cp release/*.deb release/*.rpm dist-release/ 2>/dev/null || true
+          ls -lh dist-release
+          echo "files=$(ls dist-release | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: My VPNs ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          body: |
+            ## Packages
+
+            - `.deb` — Debian / Ubuntu / Mint
+            - `.rpm` — Fedora / RHEL / Rocky / Alma / openSUSE
+
+            Source code archives (`.zip` / `.tar.gz`) are attached automatically by GitHub on this tag.
+
+            ### Install
+
+            ```bash
+            # Debian/Ubuntu
+            sudo apt install ./my-vpns_*_amd64.deb
+
+            # Fedora
+            sudo dnf install ./my-vpns-*.x86_64.rpm
+            ```
+          files: |
+            dist-release/*.deb
+            dist-release/*.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
