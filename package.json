@@ -2,7 +2,7 @@
   "name": "my-vpns",
   "productName": "My VPNs",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Gerenciador gráfico para conexões OpenFortiVPN",
   "author": {
     "name": "LucasCavalheri",
@@ -101,8 +101,8 @@
     },
     "deb": {
       "depends": [
-        "policykit-1",
-        "libgtk-3-0",
+        "pkexec | policykit-1",
+        "libgtk-3-0t64 | libgtk-3-0",
         "libnotify4"
       ],
       "recommends": [
