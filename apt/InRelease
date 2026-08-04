@@ -1,0 +1,40 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+Architectures: amd64
+Date: Tue, 04 Aug 2026 18:59:51 +0000
+Description: My VPNs Debian packages
+Label: My VPNs
+Origin: My VPNs
+MD5Sum:
+ 80e84fb6b7aa6dd500a9f2cefb99af30             1536 Packages
+ 810d73b34bea3c980dc0bd12d8a741a5              643 Packages.gz
+ f73cd0da56917ea808026883abaaa2a7              127 Release
+SHA1:
+ 28607616bcca7cfbeb9a74ee134dc9e3f430d8b8             1536 Packages
+ 7d88f7c7df6cfb7aa5344d77fb2773e0b6c54ab6              643 Packages.gz
+ 77a2b993697d42ee650715641e46064a2662a704              127 Release
+SHA256:
+ d9c13ce606e67ea7e57833fc95d25a425fef1b741b03fd725211c7fb50dac307             1536 Packages
+ fa4c5a7715a5f4a5d0785834f51e5aa8be1bb01f6d7344b71f60e022f1683c96              643 Packages.gz
+ cf123a7bc8eede7dd1d3c037e7e2e417cc9e81dcef134e719a8415e440a3e94e              127 Release
+SHA512:
+ f28d5c465a13061ceec69ebd3279bb755e8a7f00f8c7eea0e5a4a31a8ecca8f7f61f391f18e12f4c87ff8fc88d993cb268e37d641f1da4e5225984f71d48625d             1536 Packages
+ 9a45bdee8e3bfcb28b8fc9bbaf67287f2da341205188c5c6868b67ef244ffdaff21bf9b3401fe7765e40355605325b43ba12e51df4352c0196410c8b6f0c2a9d              643 Packages.gz
+ c5934aee2674724a633ca10a09092453e782f055735bd2b652d56a83c7d1f6077be23d48c581f11ec6f965de48bd0c5316d8316a42b63c88eda472bce3bbe483              127 Release
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCAAdFiEEqfE3vudLYjExBxNY+w7B1aASYvAFAmpyNqcACgkQ+w7B1aAS
+YvCbuQ/+J7FjGXBAza2l2WPHPDm8rTco6snDgeGQGAdRFlPbsuRUyS7jjr1a97vh
+zy5jUP1umMFjsdRKIYIw8yFEQ1D7552APftBoZysZiRq/qYUHRFg6mE4WZA82M96
+s27Yu5qIwNModVNR5nd+unKP8SE7iRd96K+Ty+t9sCYhZkiHHYBB1soOfRmzd4L2
+bVfYWt7V76J74H/ohobrpkDyjJSgMc13SOElyWHiu7rS0zIUYS85/439VY+YBGep
+ZUekc2A6a7qiq0OqZFBu02ISyomNwdyZf612k4zglofGMOrwQfXhMlKRK/E1bZx5
+jwB5EF0tr0LCNRAyDXSd+c9mymMtyYThstrY0QNxwY4gVzGRlKmOlWew2l4/2Hwq
+J4ruTR/5dwX0/eaJeUM2jzESxr2Xn+Et/k0XwmSmz4T/6Zm6FQO0Wuu6f20ZbSVI
+GiSAJEgNS/6egpit2ZLc/vCjuPRyyxX2nHNOI1Zvqq7x1kdz4+F21vvZ6zUb8fYk
+xxgVWp0xLiXMuInHqunj7GqRPV1Fd+ZICfkHLsU+z7mm5zBzaevTPnD8qtYNVQDe
+wa9PQby18yZw9ifWX2eSmdAJWBFl3xIRWTzSfbrcadTLh/LHh3m16P9ZN72kksss
+D+kjQ9t/XG6T9+nwMuGuhuR5ccS3Gi53IYM2tkrXzksCyAp1+/A=
+=6jcr
+-----END PGP SIGNATURE-----
