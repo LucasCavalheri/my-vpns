@@ -4,6 +4,7 @@ set -e
 install -d /usr/lib/my-vpns
 
 APP_DIR=""
+RES_DIR="/nonexistent"
 for candidate in "/opt/My VPNs" "/opt/my-vpns"; do
   if [ -x "$candidate/my-vpns" ]; then
     APP_DIR="$candidate"
@@ -57,11 +58,20 @@ EOF
   done
 fi
 
-# APT repo so `sudo apt upgrade` can pull newer builds from GitHub Pages
-if [ -d /etc/apt/sources.list.d ]; then
-  cat > /etc/apt/sources.list.d/my-vpns.list << 'EOF'
-deb [trusted=yes arch=amd64] https://lucascavalheri.github.io/my-vpns/apt ./
+# Signed APT repo so `sudo apt upgrade` can pull newer builds from GitHub Pages
+KEYRING_SOURCE="$RES_DIR/my-vpns-archive-keyring.asc"
+KEYRING_DEST="/usr/share/keyrings/my-vpns-archive-keyring.asc"
+SOURCE_LIST="/etc/apt/sources.list.d/my-vpns.list"
+
+if [ -d /etc/apt/sources.list.d ] && [ -f "$KEYRING_SOURCE" ]; then
+  install -d /usr/share/keyrings
+  install -m 0644 "$KEYRING_SOURCE" "$KEYRING_DEST"
+  cat > "$SOURCE_LIST" << EOF
+deb [arch=amd64 signed-by=$KEYRING_DEST] https://lucascavalheri.github.io/my-vpns/apt ./
 EOF
+elif [ -d /etc/apt/sources.list.d ]; then
+  # Never leave an old, untrusted source enabled after an incomplete upgrade.
+  rm -f "$SOURCE_LIST"
 fi
 
 exit 0

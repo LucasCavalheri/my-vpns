@@ -51,6 +51,9 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 sudo apt install ./my-vpns_*_amd64.deb
 ```
 
+The package installs the signed APT source automatically, so future releases
+can be installed with `sudo apt upgrade`.
+
 #### Fedora / RHEL / Rocky / Alma
 
 ```bash
@@ -88,6 +91,12 @@ gh release create v1.0.1 \
 ```
 
 > GitHub always offers **Source code** downloads on the release page for the tagged commit — you don’t upload those yourself.
+
+The release workflow signs the APT repository with the archive key committed at
+[`packaging/my-vpns-archive-keyring.asc`](./packaging/my-vpns-archive-keyring.asc).
+The matching private key must be configured once as the GitHub Actions secret
+`APT_SIGNING_KEY`; it must never be committed to the repository.
+The key fingerprint is `A9F137BEE74B623131071358FB0EC1D5A01262F0`.
 
 ### Requirements
 

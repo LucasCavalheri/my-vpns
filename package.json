@@ -3,7 +3,7 @@
   "productName": "My VPNs",
   "desktopName": "my-vpns",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Gerenciador gráfico para conexões OpenFortiVPN",
   "author": {
     "name": "LucasCavalheri",
@@ -78,6 +78,10 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "packaging/my-vpns-archive-keyring.asc",
+        "to": "my-vpns-archive-keyring.asc"
       }
     ],
     "linux": {
