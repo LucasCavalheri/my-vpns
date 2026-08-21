@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Terminal } from 'lucide-react'
-import { useI18n } from '../i18n/I18nProvider'
+import { useI18n } from '../i18n/useI18n'
 
 interface Props {
   logs: string[]

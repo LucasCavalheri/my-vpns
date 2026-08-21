@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleAlert, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { DependencyStatus, InstallResult } from '../types'
-import { useI18n } from '../i18n/I18nProvider'
+import { useI18n } from '../i18n/useI18n'
 
 interface Props {
   status: DependencyStatus

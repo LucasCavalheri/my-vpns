@@ -1,6 +1,6 @@
 import { ArrowUpRight, Download, X } from 'lucide-react'
 import type { UpdateInfo } from '../types'
-import { useI18n } from '../i18n/I18nProvider'
+import { useI18n } from '../i18n/useI18n'
 
 interface Props {
   update: UpdateInfo

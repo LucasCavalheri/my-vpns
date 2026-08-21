@@ -29,7 +29,8 @@ import { ConsolePanel } from './components/ConsolePanel'
 import { StatusPill } from './components/StatusPill'
 import { Toggle } from './components/Toggle'
 import { UpdateBanner } from './components/UpdateBanner'
-import { I18nProvider, useI18n } from './i18n/I18nProvider'
+import { I18nProvider } from './i18n/I18nProvider'
+import { useI18n } from './i18n/useI18n'
 
 const emptyState: VpnState = {
   sessions: {},

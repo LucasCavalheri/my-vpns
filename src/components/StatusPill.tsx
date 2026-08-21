@@ -1,5 +1,5 @@
 import type { VpnStatus } from '../types'
-import { useI18n } from '../i18n/I18nProvider'
+import { useI18n } from '../i18n/useI18n'
 
 const pillStyles: Record<VpnStatus, string> = {
   connected: 'border-live/30 bg-live-soft text-live',

@@ -1,6 +1,6 @@
 import { LoaderCircle, Pencil, Power, Trash2 } from 'lucide-react'
 import type { VpnProfile, VpnSession } from '../types'
-import { useI18n } from '../i18n/I18nProvider'
+import { useI18n } from '../i18n/useI18n'
 
 interface Props {
   profile: VpnProfile

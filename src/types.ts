@@ -143,5 +143,3 @@ declare global {
     myVpns: MyVpnsApi
   }
 }
-
-export {}
