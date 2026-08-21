@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { CircleAlert, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
 import type { DependencyStatus, InstallResult } from '../types'
 import { useI18n } from '../i18n/I18nProvider'
 
@@ -62,24 +63,30 @@ export function SetupGate({ status, onInstalled }: Props) {
 
   return (
     <div className="flex h-full items-center justify-center p-6 text-ink">
-      <div className="stamp-in w-full max-w-xl border-2 border-ink bg-sheet">
-        <div className="border-b-2 border-ink bg-flare px-5 py-4">
-          <p className="font-mono text-[11px] tracking-[0.28em] uppercase">
-            {t('setup.missing')}
-          </p>
-          <h1 className="mt-1 text-3xl leading-none font-extrabold tracking-[-0.03em]">
-            openfortivpn
-          </h1>
+      <div className="fade-up w-full max-w-xl overflow-hidden rounded-2xl border border-line bg-surface shadow-xl shadow-black/5">
+        <div className="flex items-center gap-3.5 border-b border-line px-6 py-5">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
+            <CircleAlert className="size-5" />
+          </span>
+          <div>
+            <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">
+              {t('setup.missing')}
+            </p>
+            <h1 className="text-xl font-bold tracking-tight">openfortivpn</h1>
+          </div>
         </div>
 
-        <div className="space-y-4 px-5 py-5">
-          <p className="text-base leading-relaxed text-mute">
+        <div className="space-y-4 px-6 py-5">
+          <p className="text-sm leading-relaxed text-muted">
             {t('setup.needsClient')}{' '}
-            <strong className="text-ink">{status.distro.pretty}</strong>.
+            <strong className="font-semibold text-ink">
+              {status.distro.pretty}
+            </strong>
+            .
           </p>
 
-          <div className="border-2 border-ink bg-paper px-4 py-3 font-mono text-sm">
-            <div className="text-[11px] tracking-[0.18em] text-mute uppercase">
+          <div className="rounded-lg border border-line bg-app px-4 py-3 font-mono text-sm">
+            <div className="text-[10px] font-semibold tracking-widest text-muted uppercase">
               {t('setup.installPlan', { family: status.distro.family })}
             </div>
             <div className="mt-2 break-all">
@@ -90,7 +97,7 @@ export function SetupGate({ status, onInstalled }: Props) {
           </div>
 
           {error && (
-            <p className="border-2 border-fault bg-fault/10 px-3 py-2 font-mono text-sm text-fault">
+            <p className="rounded-lg border border-fault/25 bg-fault-soft px-3 py-2 font-mono text-xs break-all text-fault">
               {error}
             </p>
           )}
@@ -98,7 +105,7 @@ export function SetupGate({ status, onInstalled }: Props) {
           {logs.length > 0 && (
             <div
               ref={logRef}
-              className="console-scroll max-h-36 overflow-y-auto border-2 border-ink bg-ink px-3 py-2 font-mono text-[12px] leading-5 text-sheet/80"
+              className="console-scroll max-h-36 overflow-y-auto rounded-lg border border-line bg-[#12161c] px-3 py-2 font-mono text-xs leading-5 text-white/75"
             >
               {logs.map((line, i) => (
                 <div key={`${i}-${line.slice(0, 20)}`}>{line}</div>
@@ -106,21 +113,27 @@ export function SetupGate({ status, onInstalled }: Props) {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3 pt-1">
+          <div className="flex flex-wrap gap-2.5 pt-1">
             <button
               type="button"
               disabled={busy || !status.canAutoInstall}
               onClick={() => void install()}
-              className="border-2 border-ink bg-flare px-4 py-3 font-mono text-sm tracking-[0.16em] uppercase disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
+              {busy ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="size-4" />
+              )}
               {busy ? t('setup.working') : t('setup.installNow')}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={() => void recheck()}
-              className="border-2 border-ink bg-sheet px-4 py-3 font-mono text-sm tracking-[0.16em] uppercase hover:bg-paper disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
             >
+              <RefreshCw className="size-4" />
               {t('setup.recheck')}
             </button>
           </div>

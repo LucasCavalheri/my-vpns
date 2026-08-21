@@ -1,5 +1,7 @@
 export type AppLocale = 'en' | 'pt-BR'
 
+export type ThemePreference = 'system' | 'light' | 'dark'
+
 export type VpnStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 export type PackageFamily =
@@ -83,6 +85,8 @@ export interface AppSettingsView {
   locale: AppLocale
   autostart: boolean
   autostartPath: string
+  theme: ThemePreference
+  version: string
 }
 
 export interface UpdateInfo {
@@ -90,6 +94,11 @@ export interface UpdateInfo {
   latest: string
   url: string
 }
+
+export type UpdateCheckResult =
+  | { status: 'up-to-date'; current: string }
+  | { status: 'available'; info: UpdateInfo }
+  | { status: 'error'; message: string }
 
 export interface MyVpnsApi {
   getProfiles: () => Promise<VpnProfile[]>
@@ -118,13 +127,15 @@ export interface MyVpnsApi {
     draft?: VpnProfileDraft
     canceled?: boolean
   }>
-  checkForUpdate: () => Promise<UpdateInfo | null>
+  checkForUpdate: () => Promise<UpdateCheckResult>
   dismissUpdate: (version: string) => Promise<{ ok: boolean }>
   openUpdateUrl: (url: string) => Promise<{ ok: boolean }>
+  setTheme: (theme: ThemePreference) => Promise<{ theme: ThemePreference }>
   onState: (cb: (state: VpnState) => void) => () => void
   onLog: (cb: (line: string) => void) => () => void
   onProfiles: (cb: (profiles: VpnProfile[]) => void) => () => void
   onInstallLog: (cb: (line: string) => void) => () => void
+  onUpdateAvailable: (cb: (info: UpdateInfo) => void) => () => void
 }
 
 declare global {

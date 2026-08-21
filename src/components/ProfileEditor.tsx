@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { X } from 'lucide-react'
 import type { VpnProfileDraft } from '../types'
 import { useI18n } from '../i18n/I18nProvider'
 
@@ -41,33 +42,34 @@ export function ProfileEditor({
         : t('form.createTitle')
 
   return (
-    <div className="absolute inset-0 z-20 flex items-stretch bg-ink/40 p-4 backdrop-blur-[1px]">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/45 p-4 backdrop-blur-[2px]">
       <form
-        className="stamp-in flex w-full flex-col border-2 border-ink bg-sheet"
+        className="fade-up flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
         onSubmit={(e) => {
           e.preventDefault()
           onSave(draft)
         }}
       >
-        <div className="flex items-end justify-between border-b-2 border-ink bg-flare px-5 py-4">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
-            <p className="font-mono text-[11px] tracking-[0.28em] uppercase">
+            <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">
               openfortivpn · .conf
             </p>
-            <h2 className="mt-1 text-3xl leading-none font-extrabold tracking-[-0.03em]">
-              {title}
-            </h2>
+            <h2 className="mt-0.5 text-lg font-bold tracking-tight">{title}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="border-2 border-ink bg-sheet px-3 py-2 font-mono text-xs tracking-[0.16em] uppercase"
+            aria-label={t('form.cancel')}
+            title={t('form.cancel')}
+            disabled={busy}
+            className="grid size-8 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
           >
-            {t('form.cancel')}
+            <X className="size-4" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto console-scroll px-5 py-5">
+        <div className="console-scroll min-h-0 flex-1 overflow-y-auto px-5 py-5">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t('form.id')} hint={t('form.idHint')}>
               <input
@@ -139,7 +141,7 @@ export function ProfileEditor({
               <input
                 value={draft.trustedCert}
                 onChange={(e) => patch('trustedCert', e.target.value)}
-                className="field-input font-mono text-sm"
+                className="field-input text-xs"
                 placeholder="sha256 digest…"
               />
             </Field>
@@ -156,20 +158,20 @@ export function ProfileEditor({
               />
             </Field>
 
-            <div className="flex flex-col justify-end gap-3 border-2 border-ink bg-paper px-4 py-3 font-mono text-sm">
-              <label className="flex items-center gap-2">
+            <div className="flex flex-col justify-end gap-3 rounded-lg border border-line bg-app px-4 py-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
-                  className="accent-flare"
+                  className="accent-accent"
                   checked={draft.setRoutes}
                   onChange={(e) => patch('setRoutes', e.target.checked)}
                 />
                 {t('form.setRoutes')}
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
                 <input
                   type="checkbox"
-                  className="accent-flare"
+                  className="accent-accent"
                   checked={draft.setDns}
                   onChange={(e) => patch('setDns', e.target.checked)}
                 />
@@ -179,17 +181,17 @@ export function ProfileEditor({
           </div>
 
           {error && (
-            <p className="mt-4 border-2 border-fault bg-fault/10 px-3 py-2 font-mono text-sm text-fault">
+            <p className="mt-4 rounded-lg border border-fault/25 bg-fault-soft px-3 py-2 font-mono text-xs break-all text-fault">
               {error}
             </p>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-3 border-t-2 border-ink px-5 py-4">
+        <div className="flex flex-wrap gap-2.5 border-t border-line px-5 py-4">
           <button
             type="submit"
             disabled={busy}
-            className="border-2 border-ink bg-flare px-5 py-3 font-mono text-sm tracking-[0.16em] uppercase disabled:opacity-40"
+            className="rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? t('form.saving') : t('form.save')}
           </button>
@@ -197,7 +199,7 @@ export function ProfileEditor({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="border-2 border-ink bg-sheet px-5 py-3 font-mono text-sm tracking-[0.16em] uppercase"
+            className="rounded-lg border border-line bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {t('form.cancel')}
           </button>
@@ -220,11 +222,11 @@ function Field({
 }) {
   return (
     <label className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="font-mono text-[11px] tracking-[0.16em] text-mute uppercase">
+      <span className="text-xs font-semibold tracking-wide text-muted uppercase">
         {label}
       </span>
       {children}
-      {hint && <span className="text-xs text-mute">{hint}</span>}
+      {hint && <span className="text-xs text-muted">{hint}</span>}
     </label>
   )
 }

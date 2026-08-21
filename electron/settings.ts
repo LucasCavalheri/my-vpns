@@ -3,14 +3,26 @@ import path from 'node:path'
 
 export type AppLocale = 'en' | 'pt-BR'
 
+export type ThemePreference = 'system' | 'light' | 'dark'
+
 export interface AppSettings {
   locale: AppLocale
+  /** UI theme preference. `system` follows the desktop theme. */
+  theme?: ThemePreference
   /** Last update version the user dismissed in the in-app banner. */
   dismissedUpdateVersion?: string
 }
 
 const DEFAULTS: AppSettings = {
   locale: 'en',
+}
+
+const THEMES: ThemePreference[] = ['system', 'light', 'dark']
+
+export function normalizeTheme(value: unknown): ThemePreference {
+  return THEMES.includes(value as ThemePreference)
+    ? (value as ThemePreference)
+    : 'system'
 }
 
 function settingsPath(): string {
@@ -40,7 +52,8 @@ export function loadSettings(): AppSettings {
       typeof parsed.dismissedUpdateVersion === 'string'
         ? parsed.dismissedUpdateVersion
         : undefined
-    return { ...DEFAULTS, locale, dismissedUpdateVersion }
+    const theme = normalizeTheme(parsed.theme)
+    return { ...DEFAULTS, locale, theme, dismissedUpdateVersion }
   } catch {
     return { ...DEFAULTS, locale: detectLocale() }
   }

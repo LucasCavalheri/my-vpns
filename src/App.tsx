@@ -1,7 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import {
+  LoaderCircle,
+  Minimize2,
+  Monitor,
+  Moon,
+  Plus,
+  Power,
+  RefreshCw,
+  ShieldCheck,
+  Sun,
+  Upload,
+} from 'lucide-react'
 import type {
   AppLocale,
   DependencyStatus,
+  ThemePreference,
   UpdateInfo,
   VpnProfile,
   VpnProfileDraft,
@@ -11,12 +24,28 @@ import type {
 } from './types'
 import { SetupGate } from './components/SetupGate'
 import { ProfileEditor } from './components/ProfileEditor'
-import type { MessageKey } from './i18n/messages'
+import { ProfileCard } from './components/ProfileCard'
+import { ConsolePanel } from './components/ConsolePanel'
+import { StatusPill } from './components/StatusPill'
+import { Toggle } from './components/Toggle'
+import { UpdateBanner } from './components/UpdateBanner'
 import { I18nProvider, useI18n } from './i18n/I18nProvider'
 
 const emptyState: VpnState = {
   sessions: {},
   autoReconnect: false,
+}
+
+const themeIcons: Record<ThemePreference, typeof Monitor> = {
+  system: Monitor,
+  light: Sun,
+  dark: Moon,
+}
+
+const nextThemePref: Record<ThemePreference, ThemePreference> = {
+  system: 'light',
+  light: 'dark',
+  dark: 'system',
 }
 
 function blankDraft(): VpnProfileDraft {
@@ -34,54 +63,28 @@ function blankDraft(): VpnProfileDraft {
   }
 }
 
-function statusWord(
-  status: VpnStatus,
-  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
-): string {
-  switch (status) {
-    case 'connected':
-      return t('status.linkUp')
-    case 'connecting':
-      return t('status.handshake')
-    case 'error':
-      return t('status.fault')
-    default:
-      return t('status.idle')
-  }
-}
+type CheckFeedback = 'idle' | 'checking' | 'uptodate' | 'error'
 
-function formatDuration(connectedAt: number | null): string {
+function formatDuration(connectedAt: number | null, now: number): string {
   if (!connectedAt) return '00:00:00'
-  const seconds = Math.max(0, Math.floor((Date.now() - connectedAt) / 1000))
+  const seconds = Math.max(0, Math.floor((now - connectedAt) / 1000))
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
   const s = seconds % 60
   return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':')
 }
 
-function summarize(
-  state: VpnState,
-  t: ReturnType<typeof useI18n>['t'],
-) {
+function summarize(state: VpnState) {
   const sessions = Object.values(state.sessions)
-  const connected = sessions.filter((s) => s.status === 'connected')
-  const connecting = sessions.filter((s) => s.status === 'connecting')
-  const errored = sessions.filter((s) => s.status === 'error')
+  const connectedCount = sessions.filter((s) => s.status === 'connected').length
+  const connectingCount = sessions.filter((s) => s.status === 'connecting').length
 
   let overall: VpnStatus = 'disconnected'
-  if (connected.length > 0) overall = 'connected'
-  else if (connecting.length > 0) overall = 'connecting'
-  else if (errored.length > 0) overall = 'error'
+  if (connectedCount > 0) overall = 'connected'
+  else if (connectingCount > 0) overall = 'connecting'
+  else if (sessions.some((s) => s.status === 'error')) overall = 'error'
 
-  const label =
-    connected.length + connecting.length === 0
-      ? t('ops.noneActive')
-      : t('ops.deskSummary', {
-          up: connected.length,
-          handshake: connecting.length,
-        })
-
-  return { connected, connecting, errored, overall, label }
+  return { connectedCount, connectingCount, overall }
 }
 
 function Desk() {
@@ -93,7 +96,10 @@ function Desk() {
   const [state, setState] = useState<VpnState>(emptyState)
   const [logs, setLogs] = useState<string[]>([])
   const [autostart, setAutostart] = useState(false)
-  const [now, setNow] = useState(Date.now())
+  const [appVersion, setAppVersion] = useState('')
+  const [theme, setThemePref] = useState<ThemePreference>('system')
+  const [checkFeedback, setCheckFeedback] = useState<CheckFeedback>('idle')
+  const [now, setNow] = useState(() => Date.now())
   const [editor, setEditor] = useState<{
     mode: 'create' | 'edit' | 'import'
     draft: VpnProfileDraft
@@ -101,7 +107,6 @@ function Desk() {
   const [editorBusy, setEditorBusy] = useState(false)
   const [editorError, setEditorError] = useState<string | null>(null)
   const [update, setUpdate] = useState<UpdateInfo | null>(null)
-  const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -133,6 +138,8 @@ function Desk() {
         if (cancelled) return
         setLocale(settings.locale)
         setAutostart(settings.autostart)
+        setThemePref(settings.theme)
+        setAppVersion(settings.version)
         setDeps(status)
         setDepsReady(status.openfortivpnInstalled)
         setBootError(null)
@@ -162,8 +169,8 @@ function Desk() {
       },
     )
 
-    void api.checkForUpdate().then((info) => {
-      if (info) setUpdate(info)
+    void api.checkForUpdate().then((result) => {
+      if (result.status === 'available') setUpdate(result.info)
     })
 
     const offState = api.onState(setState)
@@ -171,29 +178,34 @@ function Desk() {
     const offLog = api.onLog((line) => {
       setLogs((prev) => [...prev.slice(-400), line])
     })
+    const offUpdate = api.onUpdateAvailable((info) => setUpdate(info))
 
     return () => {
       offState()
       offProfiles()
       offLog()
+      offUpdate()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depsReady])
 
-  useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
-    }
-  }, [logs])
+  const summary = useMemo(() => summarize(state), [state])
+  const anyUp = summary.connectedCount + summary.connectingCount > 0
+  const anyBusy = summary.connectingCount > 0
 
-  const summary = useMemo(() => summarize(state, t), [state, t])
+  const summaryLabel =
+    !anyUp
+      ? t('ops.noneActive')
+      : t('ops.deskSummary', {
+          up: summary.connectedCount,
+          handshake: summary.connectingCount,
+        })
 
   useEffect(() => {
-    if (summary.connected.length === 0) return
+    if (summary.connectedCount === 0) return
     const id = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(id)
-  }, [summary.connected.length])
-
-  const anyBusy = summary.connecting.length > 0
+  }, [summary.connectedCount])
 
   async function toggle(profile: VpnProfile) {
     if (!window.myVpns) return
@@ -210,9 +222,32 @@ function Desk() {
     await window.myVpns?.setLocale(next)
   }
 
+  async function changeTheme(pref: ThemePreference) {
+    setThemePref(pref)
+    await window.myVpns?.setTheme(pref)
+  }
+
   async function toggleAutostart(enabled: boolean) {
     const result = await window.myVpns?.setAutostart(enabled)
     if (result) setAutostart(result.enabled)
+  }
+
+  async function runManualCheck() {
+    if (!window.myVpns || checkFeedback === 'checking') return
+    setCheckFeedback('checking')
+    try {
+      const result = await window.myVpns.checkForUpdate()
+      if (result.status === 'available') {
+        setUpdate(result.info)
+        setCheckFeedback('idle')
+      } else if (result.status === 'up-to-date') {
+        setCheckFeedback('uptodate')
+      } else {
+        setCheckFeedback('error')
+      }
+    } catch {
+      setCheckFeedback('error')
+    }
   }
 
   function openCreate() {
@@ -277,13 +312,18 @@ function Desk() {
   if (bootError) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="font-mono text-[11px] tracking-[0.28em] text-fault uppercase">
+        <div className="grid size-12 place-items-center rounded-2xl bg-fault-soft text-fault">
+          <Power className="size-6" />
+        </div>
+        <p className="text-xs font-semibold tracking-wide text-fault uppercase">
           {t('boot.fault')}
         </p>
-        <p className="max-w-lg text-xl font-bold tracking-tight">{bootError}</p>
+        <p className="max-w-lg text-lg font-semibold tracking-tight">
+          {bootError}
+        </p>
         <button
           type="button"
-          className="mt-2 border-2 border-ink bg-flare px-4 py-2 font-mono text-sm tracking-[0.16em] uppercase"
+          className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
           onClick={() => window.location.reload()}
         >
           {t('boot.retry')}
@@ -294,7 +334,8 @@ function Desk() {
 
   if (depsReady === null) {
     return (
-      <div className="flex h-full items-center justify-center font-mono text-sm tracking-[0.2em] text-mute uppercase">
+      <div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
+        <LoaderCircle className="size-4 animate-spin" />
         {t('boot.sequence')}
       </div>
     )
@@ -312,336 +353,207 @@ function Desk() {
     )
   }
 
-  return (
-    <div className="relative flex h-full flex-col text-ink">
-      {update ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink bg-flare px-5 py-3">
-          <div className="min-w-0">
-            <p className="font-mono text-xs tracking-[0.14em] uppercase">
-              {t('update.available', {
-                latest: update.latest,
-                current: update.current,
-              })}
-            </p>
-            <p className="mt-1 font-mono text-[11px] text-ink/80">
-              {t('update.aptHint')}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="border-2 border-ink bg-sheet px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] uppercase"
-              onClick={() => void window.myVpns?.openUpdateUrl(update.url)}
-            >
-              {t('update.open')}
-            </button>
-            <button
-              type="button"
-              className="border-2 border-ink px-3 py-1.5 font-mono text-[11px] tracking-[0.14em] uppercase"
-              onClick={() => {
-                void window.myVpns?.dismissUpdate(update.latest)
-                setUpdate(null)
-              }}
-            >
-              {t('update.dismiss')}
-            </button>
-          </div>
-        </div>
-      ) : null}
+  const ThemeIcon = themeIcons[theme]
 
-      <header className="stamp-in border-b-2 border-ink px-5 pb-4 pt-5">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="font-mono text-[11px] tracking-[0.28em] text-mute uppercase">
-              {t('brand.subtitleMulti')}
-            </p>
-            <h1 className="mt-1 text-[clamp(2.6rem,7vw,4.4rem)] leading-[0.9] font-extrabold tracking-[-0.04em]">
+  return (
+    <div className="flex h-full flex-col text-ink">
+      {update && (
+        <UpdateBanner
+          update={update}
+          onOpen={(url) => void window.myVpns?.openUpdateUrl(url)}
+          onDismiss={() => {
+            void window.myVpns?.dismissUpdate(update.latest)
+            setUpdate(null)
+          }}
+        />
+      )}
+
+      <header className="fade-up flex items-center justify-between gap-4 px-6 pb-4 pt-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent text-white shadow-md shadow-accent/25">
+            <ShieldCheck className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-lg leading-tight font-bold tracking-tight">
               My VPNs
             </h1>
-          </div>
-
-          <div className="text-right">
-            <div
-              className={`inline-block border-2 border-ink px-3 py-2 font-mono text-sm tracking-[0.18em] ${
-                summary.overall === 'connected'
-                  ? 'bg-live text-sheet'
-                  : summary.overall === 'error'
-                    ? 'bg-fault text-sheet'
-                    : summary.overall === 'connecting'
-                      ? 'bg-flare text-ink'
-                      : 'bg-sheet'
-              }`}
-            >
-              <span className={summary.overall === 'connected' ? 'blink-live' : ''}>
-                {statusWord(summary.overall, t)}
-              </span>
-            </div>
-            <p className="mt-2 font-mono text-[11px] text-mute">
-              /etc/openfortivpn
+            <p className="truncate text-xs text-muted">
+              {t('brand.subtitleMulti')}
             </p>
           </div>
         </div>
 
-        <div className="sweep-in mt-4 h-1.5 bg-flare" />
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="hidden font-mono text-[11px] text-muted md:block">
+            /etc/openfortivpn
+          </span>
+          <StatusPill status={summary.overall} />
+        </div>
       </header>
 
-      <div className="stamp-in flex flex-wrap items-center gap-x-5 gap-y-2 border-b-2 border-ink bg-sheet px-5 py-3 font-mono text-xs [animation-delay:80ms]">
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 accent-flare"
-            checked={state.autoReconnect}
-            onChange={(e) => {
-              void window.myVpns?.setAutoReconnect(e.target.checked)
-              setState((s) => ({ ...s, autoReconnect: e.target.checked }))
-            }}
-          />
-          <span className="tracking-[0.14em] uppercase">{t('ops.autoRelink')}</span>
-        </label>
+      <main className="flex min-h-0 flex-1 flex-col">
+        <div className="fade-up flex flex-wrap items-center gap-x-4 gap-y-2 px-6 pb-3 [animation-delay:60ms]">
+          <button type="button" onClick={openCreate} className="toolbar-btn">
+            <Plus className="size-4" />
+            {t('ops.newProfile')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void openImport()}
+            className="toolbar-btn"
+          >
+            <Upload className="size-4" />
+            {t('ops.importConf')}
+          </button>
+          <button
+            type="button"
+            onClick={() => void window.myVpns?.refreshProfiles()}
+            className="toolbar-btn"
+          >
+            <RefreshCw className="size-4" />
+            {t('ops.reloadProfiles')}
+          </button>
 
-        <label className="flex cursor-pointer items-center gap-2">
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 accent-flare"
-            checked={autostart}
-            onChange={(e) => void toggleAutostart(e.target.checked)}
-          />
-          <span className="tracking-[0.14em] uppercase">
-            {t('ops.startWithLinux')}
-          </span>
-        </label>
-
-        <button
-          type="button"
-          onClick={openCreate}
-          className="tracking-[0.14em] uppercase underline decoration-2 underline-offset-4 hover:text-flare"
-        >
-          {t('ops.newProfile')}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void openImport()}
-          className="tracking-[0.14em] uppercase underline decoration-2 underline-offset-4 hover:text-flare"
-        >
-          {t('ops.importConf')}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void window.myVpns?.refreshProfiles()}
-          className="tracking-[0.14em] uppercase underline decoration-2 underline-offset-4 hover:text-flare"
-        >
-          {t('ops.reloadProfiles')}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void window.myVpns?.disconnect()}
-          className="tracking-[0.14em] uppercase underline decoration-2 underline-offset-4 hover:text-flare"
-        >
-          {t('ops.killAll')}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => void window.myVpns?.minimizeToTray()}
-          className="tracking-[0.14em] uppercase underline decoration-2 underline-offset-4 hover:text-flare"
-        >
-          {t('ops.parkTray')}
-        </button>
-
-        <div className="ml-auto flex flex-wrap items-center gap-3 tracking-[0.08em] text-mute uppercase">
-          <span className="flex items-center gap-1">
-            {t('ops.language')}
+          <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Toggle
+              checked={state.autoReconnect}
+              onChange={(enabled) => {
+                void window.myVpns?.setAutoReconnect(enabled)
+                setState((s) => ({ ...s, autoReconnect: enabled }))
+              }}
+              label={t('ops.autoRelink')}
+            />
+            <Toggle
+              checked={autostart}
+              onChange={(enabled) => void toggleAutostart(enabled)}
+              label={t('ops.startWithLinux')}
+            />
             <button
               type="button"
-              onClick={() => void changeLocale('pt-BR')}
-              className={`border border-ink px-1.5 py-0.5 ${
-                locale === 'pt-BR' ? 'bg-ink text-sheet' : 'bg-sheet text-ink'
-              }`}
+              disabled={!anyUp}
+              onClick={() => void window.myVpns?.disconnect()}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium transition-colors hover:border-fault/40 hover:bg-fault-soft hover:text-fault disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-surface disabled:hover:text-inherit"
             >
-              PT
+              <Power className="size-4" />
+              {t('ops.killAll')}
             </button>
-            <button
-              type="button"
-              onClick={() => void changeLocale('en')}
-              className={`border border-ink px-1.5 py-0.5 ${
-                locale === 'en' ? 'bg-ink text-sheet' : 'bg-sheet text-ink'
-              }`}
-            >
-              EN
-            </button>
-          </span>
-          <span>
-            {t('ops.desk')} <strong className="text-ink">{summary.label}</strong>
-          </span>
-          <span className="sr-only">{now}</span>
+          </div>
         </div>
-      </div>
 
-      <main className="grid min-h-0 flex-1 grid-rows-[1fr_minmax(160px,28%)]">
-        <section className="min-h-0 overflow-y-auto console-scroll">
+        <section className="console-scroll min-h-0 flex-1 overflow-y-auto px-6 pb-4">
           {profiles.length === 0 ? (
-            <div className="flex h-full flex-col justify-center px-6">
-              <p className="text-3xl font-bold tracking-tight">
+            <div className="fade-up flex h-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-line-strong text-center">
+              <ShieldCheck className="size-8 text-muted/50" />
+              <p className="mt-2 text-lg font-bold tracking-tight">
                 {t('profiles.emptyTitle')}
               </p>
-              <p className="mt-2 max-w-md font-mono text-sm text-mute">
+              <p className="max-w-sm text-sm text-muted">
                 {t('profiles.emptyBody')}
               </p>
             </div>
           ) : (
-            <ul>
+            <ul className="flex flex-col gap-3">
               {profiles.map((profile, index) => {
-                const session: VpnSession | undefined = state.sessions[profile.id]
-                const status = session?.status ?? 'disconnected'
-                const connected = status === 'connected'
-                const connecting = status === 'connecting'
-                const errored = status === 'error'
-                const on = connected || connecting
-
+                const session: VpnSession | undefined =
+                  state.sessions[profile.id]
+                const connected = session?.status === 'connected'
                 return (
-                  <li
+                  <ProfileCard
                     key={profile.id}
-                    className={`stamp-in border-b-2 border-ink ${
+                    profile={profile}
+                    session={session}
+                    index={index}
+                    uptime={
                       connected
-                        ? 'bg-live/10'
-                        : errored
-                          ? 'bg-fault/10'
-                          : 'bg-transparent hover:bg-sheet/80'
-                    }`}
-                    style={{ animationDelay: `${120 + index * 50}ms` }}
-                  >
-                    <div className="flex items-stretch gap-0">
-                      <div
-                        className={`w-2 shrink-0 ${
-                          connected
-                            ? 'bg-live'
-                            : connecting
-                              ? 'bg-flare'
-                              : errored
-                                ? 'bg-fault'
-                                : 'bg-ink/15'
-                        }`}
-                      />
-
-                      <div className="flex min-w-0 flex-1 flex-col gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                            <h2 className="text-2xl font-bold tracking-[-0.03em] sm:text-3xl">
-                              {profile.name}
-                            </h2>
-                            {connected && (
-                              <span className="font-mono text-[11px] tracking-[0.2em] text-live uppercase">
-                                {t('profiles.live', {
-                                  uptime: formatDuration(
-                                    session?.connectedAt ?? null,
-                                  ),
-                                })}
-                              </span>
-                            )}
-                            {connecting && (
-                              <span className="font-mono text-[11px] tracking-[0.2em] text-flare uppercase">
-                                {t('profiles.handshake')}
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 truncate font-mono text-sm text-mute">
-                            {profile.host}:{profile.port}
-                            <span className="mx-2 text-ink/30">//</span>
-                            {profile.username || t('profiles.noUser')}
-                            <span className="mx-2 text-ink/30">//</span>
-                            routes {profile.setRoutes ? 'on' : 'off'} · dns{' '}
-                            {profile.setDns ? 'on' : 'off'}
-                          </p>
-                          {session?.message && status !== 'disconnected' && (
-                            <p className="mt-1 font-mono text-[11px] text-mute">
-                              {session.message}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-                          <button
-                            type="button"
-                            disabled={connecting && !on}
-                            onClick={() => void toggle(profile)}
-                            className={`border-2 border-ink px-5 py-3 font-mono text-sm tracking-[0.18em] uppercase transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                              on
-                                ? 'bg-ink text-sheet hover:bg-fault hover:border-fault'
-                                : 'bg-flare text-ink hover:translate-x-0.5'
-                            }`}
-                          >
-                            {on ? t('profiles.killLink') : t('profiles.bringUp')}
-                          </button>
-                          <div className="flex gap-3 font-mono text-[11px] tracking-[0.14em] uppercase">
-                            <button
-                              type="button"
-                              onClick={() => void openEdit(profile.id)}
-                              className="underline decoration-2 underline-offset-4 hover:text-flare"
-                            >
-                              {t('profiles.edit')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void removeProfile(profile.id)}
-                              className="underline decoration-2 underline-offset-4 hover:text-fault"
-                            >
-                              {t('profiles.delete')}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </li>
+                        ? formatDuration(session?.connectedAt ?? null, now)
+                        : null
+                    }
+                    onToggle={() => void toggle(profile)}
+                    onEdit={() => void openEdit(profile.id)}
+                    onDelete={() => void removeProfile(profile.id)}
+                  />
                 )
               })}
             </ul>
           )}
         </section>
 
-        <section className="stamp-in flex min-h-0 flex-col border-t-2 border-ink bg-ink text-sheet [animation-delay:160ms]">
-          <div className="flex items-center justify-between border-b border-sheet/20 px-5 py-2 font-mono text-[11px] tracking-[0.2em] uppercase">
-            <span>
-              {t('console.title', { label: summary.label })}
-              {anyBusy ? t('console.working') : ''}
-            </span>
-            <button
-              type="button"
-              onClick={() => setLogs([])}
-              className="hover:text-flare"
-            >
-              {t('console.clear')}
-            </button>
-          </div>
-          <div
-            ref={logRef}
-            className="console-scroll min-h-0 flex-1 overflow-y-auto px-5 py-3 font-mono text-[12.5px] leading-6 text-sheet/80"
-          >
-            {logs.length === 0 ? (
-              <p className="text-sheet/45">{t('console.empty')}</p>
-            ) : (
-              logs.map((line, i) => (
-                <div
-                  key={`${i}-${line.slice(0, 24)}`}
-                  className={
-                    line.toLowerCase().includes('error') ||
-                    line.toLowerCase().includes('failed') ||
-                    line.includes('✗')
-                      ? 'text-[#ff8a7a]'
-                      : line.includes('→') || line.includes('↻')
-                        ? 'text-flare'
-                        : undefined
-                  }
-                >
-                  {line}
-                </div>
-              ))
-            )}
-          </div>
-        </section>
+        <div className="px-6 pb-4">
+          <ConsolePanel
+            logs={logs}
+            summaryLabel={summaryLabel}
+            anyBusy={anyBusy}
+            onClear={() => setLogs([])}
+          />
+        </div>
       </main>
+
+      <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line px-6 py-2.5 text-xs text-muted">
+        <span className="font-mono font-medium">My VPNs v{appVersion || '…'}</span>
+
+        <button
+          type="button"
+          onClick={() => void runManualCheck()}
+          className="inline-flex items-center gap-1.5 font-medium text-ink transition-colors hover:text-accent"
+        >
+          {checkFeedback === 'checking' ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="size-3.5" />
+          )}
+          {checkFeedback === 'checking'
+            ? t('update.checking')
+            : t('update.checkNow')}
+        </button>
+
+        {checkFeedback === 'uptodate' && (
+          <span className="inline-flex items-center gap-1 font-medium text-live">
+            {t('update.upToDate', { version: appVersion })}
+          </span>
+        )}
+        {checkFeedback === 'error' && (
+          <span className="font-medium text-fault">{t('update.checkFailed')}</span>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg border border-line">
+            {(['pt-BR', 'en'] as const).map((loc) => (
+              <button
+                key={loc}
+                type="button"
+                onClick={() => void changeLocale(loc)}
+                className={`px-2 py-1 text-[11px] font-semibold tracking-wide uppercase transition-colors ${
+                  locale === loc
+                    ? 'bg-ink text-app'
+                    : 'bg-surface text-muted hover:text-ink'
+                }`}
+              >
+                {loc === 'pt-BR' ? 'PT' : 'EN'}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            title={t(`theme.${theme}`)}
+            aria-label={t(`theme.${theme}`)}
+            onClick={() => void changeTheme(nextThemePref[theme])}
+            className="grid size-7 place-items-center rounded-lg border border-line bg-surface text-muted transition-colors hover:text-ink"
+          >
+            <ThemeIcon className="size-3.5" />
+          </button>
+
+          <button
+            type="button"
+            title={t('ops.parkTray')}
+            aria-label={t('ops.parkTray')}
+            onClick={() => void window.myVpns?.minimizeToTray()}
+            className="grid size-7 place-items-center rounded-lg border border-line bg-surface text-muted transition-colors hover:text-ink"
+          >
+            <Minimize2 className="size-3.5" />
+          </button>
+        </div>
+      </footer>
 
       {editor && (
         <ProfileEditor

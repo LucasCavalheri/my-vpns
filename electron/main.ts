@@ -5,6 +5,7 @@ import {
   Notification,
   Tray,
   nativeImage,
+  nativeTheme,
   ipcMain,
   shell,
   dialog,
@@ -22,7 +23,12 @@ import {
   isAutostartEnabled,
   setAutostartEnabled,
 } from './autostart'
-import { loadSettings, saveSettings, type AppLocale } from './settings'
+import {
+  loadSettings,
+  saveSettings,
+  normalizeTheme,
+  type AppLocale,
+} from './settings'
 import { translate } from '../src/i18n/messages'
 import {
   deleteProfileFile,
@@ -32,6 +38,11 @@ import {
   type VpnProfileDraft,
 } from './profiles'
 import { checkForAppUpdate, type UpdateInfo } from './updates'
+import {
+  nextCheckDelayMs,
+  type UpdateScheduleState,
+} from './updateScheduler'
+import type { UpdateCheckResult } from '../src/types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -60,6 +71,14 @@ let quitting = false
 const vpn = new VpnManager()
 let lastConnected = new Set<string>()
 let locale: AppLocale = 'en'
+
+// --- Update check scheduling (pure math in ./updateScheduler) ---
+let updateTimer: NodeJS.Timeout | null = null
+const updateSchedule: UpdateScheduleState = {
+  lastAttemptAt: null,
+  consecutiveFailures: 0,
+}
+let notifiedVersion: string | null = null
 
 function iconPath(): string {
   const candidates = [
@@ -113,7 +132,7 @@ function createWindow(): void {
     minWidth: 820,
     minHeight: 560,
     title: 'My VPNs',
-    backgroundColor: '#e3e7ec',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f4f6f8',
     show: false,
     autoHideMenuBar: true,
     ...(icon ? { icon } : {}),
@@ -150,6 +169,68 @@ function createWindow(): void {
 function notify(title: string, body: string): void {
   if (!Notification.isSupported()) return
   new Notification({ title, body, silent: false }).show()
+}
+
+function broadcastUpdate(info: UpdateInfo): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('updates:updateAvailable', info)
+  }
+}
+
+function scheduleNextUpdateCheck(): void {
+  if (updateTimer) clearTimeout(updateTimer)
+  const delay = nextCheckDelayMs(updateSchedule)
+  updateTimer = setTimeout(() => {
+    void performUpdateCheck(false)
+  }, delay)
+}
+
+/**
+ * Runs one update check. Scheduled checks respect a previously dismissed
+ * version and drive the retry cadence; manual checks always report the
+ * truth so the user gets explicit feedback.
+ */
+async function performUpdateCheck(manual: boolean): Promise<UpdateCheckResult> {
+  updateSchedule.lastAttemptAt = Date.now()
+  try {
+    const current = app.getVersion()
+    const info = await checkForAppUpdate(current)
+    updateSchedule.consecutiveFailures = 0
+    if (!info) return { status: 'up-to-date', current }
+
+    const dismissed = loadSettings().dismissedUpdateVersion
+    const suppressed = !manual && dismissed === info.latest
+
+    if (!suppressed) {
+      broadcastUpdate(info)
+      if (notifiedVersion !== info.latest && dismissed !== info.latest) {
+        notifiedVersion = info.latest
+        const notification = new Notification({
+          title: t('notify.updateTitle'),
+          body: t('notify.updateBody', {
+            latest: info.latest,
+            current: info.current,
+          }),
+          silent: false,
+        })
+        notification.on('click', () => {
+          void shell.openExternal(info.url)
+        })
+        if (Notification.isSupported()) notification.show()
+      }
+    }
+
+    return { status: 'available', info }
+  } catch (err) {
+    updateSchedule.consecutiveFailures += 1
+    console.error('[my-vpns] update check failed:', err)
+    return {
+      status: 'error',
+      message: err instanceof Error ? err.message : String(err),
+    }
+  } finally {
+    if (!manual) scheduleNextUpdateCheck()
+  }
 }
 
 function buildTrayMenu(): Menu {
@@ -202,6 +283,10 @@ function buildTrayMenu(): Menu {
     {
       label: t('tray.refresh'),
       click: () => vpn.refreshProfiles(),
+    },
+    {
+      label: t('tray.checkUpdates'),
+      click: () => void performUpdateCheck(true),
     },
     { type: 'separator' },
     {
@@ -312,6 +397,8 @@ function registerIpc(): void {
     locale,
     autostart: isAutostartEnabled(),
     autostartPath: getAutostartPath(),
+    theme: normalizeTheme(nativeTheme.themeSource),
+    version: app.getVersion(),
   }))
 
   ipcMain.handle('settings:setLocale', (_e, next: AppLocale) => {
@@ -319,6 +406,13 @@ function registerIpc(): void {
     saveSettings({ locale })
     tray?.setContextMenu(buildTrayMenu())
     return { locale }
+  })
+
+  ipcMain.handle('theme:set', (_e, next: string) => {
+    const theme = normalizeTheme(next)
+    nativeTheme.themeSource = theme
+    saveSettings({ theme })
+    return { theme }
   })
 
   ipcMain.handle('settings:setAutostart', (_e, enabled: boolean) => {
@@ -361,17 +455,8 @@ function registerIpc(): void {
     return draftFromImportedFile(picked.filePaths[0])
   })
 
-  ipcMain.handle('updates:check', async (): Promise<UpdateInfo | null> => {
-    try {
-      const update = await checkForAppUpdate(app.getVersion())
-      if (!update) return null
-      const dismissed = loadSettings().dismissedUpdateVersion
-      if (dismissed && dismissed === update.latest) return null
-      return update
-    } catch (err) {
-      console.error('[my-vpns] update check failed:', err)
-      return null
-    }
+  ipcMain.handle('updates:check', (): Promise<UpdateCheckResult> => {
+    return performUpdateCheck(true)
   })
 
   ipcMain.handle('updates:dismiss', (_e, version: string) => {
@@ -389,11 +474,14 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
-  locale = loadSettings().locale
+  const settings = loadSettings()
+  locale = settings.locale
+  nativeTheme.themeSource = normalizeTheme(settings.theme)
   registerIpc()
   wireVpnEvents()
   createWindow()
   createTray()
+  scheduleNextUpdateCheck()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -403,6 +491,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   quitting = true
+  if (updateTimer) clearTimeout(updateTimer)
 })
 
 app.on('window-all-closed', () => {

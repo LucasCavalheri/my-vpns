@@ -4,6 +4,8 @@ import type {
   DependencyStatus,
   InstallResult,
   ProfileWriteResult,
+  ThemePreference,
+  UpdateCheckResult,
   UpdateInfo,
   VpnProfile,
   VpnProfileDraft,
@@ -14,6 +16,8 @@ export interface AppSettingsView {
   locale: AppLocale
   autostart: boolean
   autostartPath: string
+  theme: ThemePreference
+  version: string
 }
 
 export interface MyVpnsApi {
@@ -28,6 +32,9 @@ export interface MyVpnsApi {
   installOpenfortivpn: () => Promise<InstallResult>
   getSettings: () => Promise<AppSettingsView>
   setLocale: (locale: AppLocale) => Promise<{ locale: AppLocale }>
+  setTheme: (
+    theme: ThemePreference,
+  ) => Promise<{ theme: ThemePreference }>
   setAutostart: (
     enabled: boolean,
   ) => Promise<{ ok: boolean; enabled: boolean; path: string }>
@@ -43,13 +50,14 @@ export interface MyVpnsApi {
     draft?: VpnProfileDraft
     canceled?: boolean
   }>
-  checkForUpdate: () => Promise<UpdateInfo | null>
+  checkForUpdate: () => Promise<UpdateCheckResult>
   dismissUpdate: (version: string) => Promise<{ ok: boolean }>
   openUpdateUrl: (url: string) => Promise<{ ok: boolean }>
   onState: (cb: (state: VpnState) => void) => () => void
   onLog: (cb: (line: string) => void) => () => void
   onProfiles: (cb: (profiles: VpnProfile[]) => void) => () => void
   onInstallLog: (cb: (line: string) => void) => () => void
+  onUpdateAvailable: (cb: (info: UpdateInfo) => void) => () => void
 }
 
 const api: MyVpnsApi = {
@@ -65,6 +73,7 @@ const api: MyVpnsApi = {
   installOpenfortivpn: () => ipcRenderer.invoke('deps:installOpenfortivpn'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setLocale: (locale) => ipcRenderer.invoke('settings:setLocale', locale),
+  setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),
   setAutostart: (enabled) =>
     ipcRenderer.invoke('settings:setAutostart', enabled),
   getProfileDraft: (id) => ipcRenderer.invoke('profiles:getDraft', id),
@@ -95,6 +104,12 @@ const api: MyVpnsApi = {
     const listener = (_: Electron.IpcRendererEvent, line: string) => cb(line)
     ipcRenderer.on('deps:installLog', listener)
     return () => ipcRenderer.removeListener('deps:installLog', listener)
+  },
+  onUpdateAvailable: (cb) => {
+    const listener = (_: Electron.IpcRendererEvent, info: UpdateInfo) =>
+      cb(info)
+    ipcRenderer.on('updates:updateAvailable', listener)
+    return () => ipcRenderer.removeListener('updates:updateAvailable', listener)
   },
 }
 

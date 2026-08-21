@@ -4,6 +4,15 @@ import {
   compareVersions,
   normalizeTag,
 } from '../electron/updates'
+import {
+  BASE_RETRY_DELAY_MS,
+  CHECK_INTERVAL_MS,
+  FIRST_CHECK_DELAY_MS,
+  MAX_RETRY_DELAY_MS,
+  nextCheckDelayMs,
+  retryDelayMs,
+  type UpdateScheduleState,
+} from '../electron/updateScheduler'
 
 describe('compareVersions', () => {
   it('orders plain semver', () => {
@@ -48,5 +57,53 @@ describe('checkForAppUpdate', () => {
     })) as unknown as typeof fetch
 
     expect(await checkForAppUpdate('1.0.2', { fetchImpl })).toBeNull()
+  })
+})
+
+describe('retryDelayMs', () => {
+  it('grows exponentially from the base delay', () => {
+    expect(retryDelayMs(1)).toBe(BASE_RETRY_DELAY_MS)
+    expect(retryDelayMs(2)).toBe(BASE_RETRY_DELAY_MS * 2)
+    expect(retryDelayMs(3)).toBe(BASE_RETRY_DELAY_MS * 4)
+  })
+
+  it('clamps to the max retry delay', () => {
+    expect(retryDelayMs(16)).toBe(MAX_RETRY_DELAY_MS)
+    expect(retryDelayMs(99)).toBe(MAX_RETRY_DELAY_MS)
+  })
+
+  it('treats non-positive failure counts as the first retry', () => {
+    expect(retryDelayMs(0)).toBe(BASE_RETRY_DELAY_MS)
+    expect(retryDelayMs(-3)).toBe(BASE_RETRY_DELAY_MS)
+  })
+})
+
+describe('nextCheckDelayMs', () => {
+  const state = (partial: Partial<UpdateScheduleState>): UpdateScheduleState => ({
+    lastAttemptAt: null,
+    consecutiveFailures: 0,
+    ...partial,
+  })
+
+  it('uses a short first delay before any attempt', () => {
+    expect(nextCheckDelayMs(state({}))).toBe(FIRST_CHECK_DELAY_MS)
+  })
+
+  it('waits the long interval after a successful check', () => {
+    expect(
+      nextCheckDelayMs(state({ lastAttemptAt: 1000, consecutiveFailures: 0 })),
+    ).toBe(CHECK_INTERVAL_MS)
+  })
+
+  it('backs off after failures regardless of interval', () => {
+    expect(
+      nextCheckDelayMs(state({ lastAttemptAt: 1000, consecutiveFailures: 1 })),
+    ).toBe(BASE_RETRY_DELAY_MS)
+    expect(
+      nextCheckDelayMs(state({ lastAttemptAt: 1000, consecutiveFailures: 4 })),
+    ).toBe(BASE_RETRY_DELAY_MS * 8)
+    expect(
+      nextCheckDelayMs(state({ lastAttemptAt: 1000, consecutiveFailures: 9 })),
+    ).toBe(MAX_RETRY_DELAY_MS)
   })
 })

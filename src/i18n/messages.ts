@@ -49,11 +49,14 @@ export type MessageKey =
   | 'tray.show'
   | 'tray.disconnectAll'
   | 'tray.refresh'
+  | 'tray.checkUpdates'
   | 'tray.quit'
   | 'notify.connectedTitle'
   | 'notify.connectedBody'
   | 'notify.disconnectedTitle'
   | 'notify.disconnectedBody'
+  | 'notify.updateTitle'
+  | 'notify.updateBody'
   | 'form.createTitle'
   | 'form.editTitle'
   | 'form.importTitle'
@@ -79,6 +82,13 @@ export type MessageKey =
   | 'update.aptHint'
   | 'update.open'
   | 'update.dismiss'
+  | 'update.checkNow'
+  | 'update.checking'
+  | 'update.upToDate'
+  | 'update.checkFailed'
+  | 'theme.system'
+  | 'theme.light'
+  | 'theme.dark'
 
 type Dict = Record<MessageKey, string>
 
@@ -108,7 +118,7 @@ const en: Dict = {
   'profiles.emptyTitle': 'No profiles',
   'profiles.emptyBody':
     'Drop *.conf files into /etc/openfortivpn/ and hit reload — or create / import here.',
-  'profiles.live': '● live · {uptime}',
+  'profiles.live': 'live · {uptime}',
   'profiles.handshake': 'handshake…',
   'profiles.bringUp': 'Bring up',
   'profiles.killLink': 'Kill link',
@@ -135,11 +145,15 @@ const en: Dict = {
   'tray.show': 'Show My VPNs',
   'tray.disconnectAll': 'Disconnect all',
   'tray.refresh': 'Refresh profiles',
+  'tray.checkUpdates': 'Check for updates',
   'tray.quit': 'Quit',
   'notify.connectedTitle': 'VPN connected',
   'notify.connectedBody': 'Tunnel {id} is up.',
   'notify.disconnectedTitle': 'VPN disconnected',
   'notify.disconnectedBody': 'Tunnel {id} ended.',
+  'notify.updateTitle': 'My VPNs update available',
+  'notify.updateBody':
+    'Version {latest} is out (you have {current}). Click to open the release.',
   'form.createTitle': 'New connection',
   'form.editTitle': 'Edit connection',
   'form.importTitle': 'Import connection',
@@ -165,6 +179,13 @@ const en: Dict = {
   'update.aptHint': 'sudo apt update && sudo apt install --only-upgrade my-vpns',
   'update.open': 'Release notes',
   'update.dismiss': 'Dismiss',
+  'update.checkNow': 'Check for updates',
+  'update.checking': 'Checking…',
+  'update.upToDate': 'You are up to date ({version})',
+  'update.checkFailed': 'Could not check right now — it will retry.',
+  'theme.system': 'Follow system theme',
+  'theme.light': 'Light theme',
+  'theme.dark': 'Dark theme',
 }
 
 const ptBR: Dict = {
@@ -193,7 +214,7 @@ const ptBR: Dict = {
   'profiles.emptyTitle': 'Nenhum perfil',
   'profiles.emptyBody':
     'Coloque *.conf em /etc/openfortivpn/ e recarregue — ou crie / importe por aqui.',
-  'profiles.live': '● ao vivo · {uptime}',
+  'profiles.live': 'ao vivo · {uptime}',
   'profiles.handshake': 'handshake…',
   'profiles.bringUp': 'Conectar',
   'profiles.killLink': 'Desligar',
@@ -220,11 +241,15 @@ const ptBR: Dict = {
   'tray.show': 'Mostrar My VPNs',
   'tray.disconnectAll': 'Desconectar todas',
   'tray.refresh': 'Atualizar perfis',
+  'tray.checkUpdates': 'Verificar atualizações',
   'tray.quit': 'Sair',
   'notify.connectedTitle': 'VPN conectada',
   'notify.connectedBody': 'Túnel {id} está ativo.',
   'notify.disconnectedTitle': 'VPN desconectada',
   'notify.disconnectedBody': 'Túnel {id} encerrou.',
+  'notify.updateTitle': 'Atualização do My VPNs disponível',
+  'notify.updateBody':
+    'Saiu a versão {latest} (você tem {current}). Clique para abrir a release.',
   'form.createTitle': 'Nova conexão',
   'form.editTitle': 'Editar conexão',
   'form.importTitle': 'Importar conexão',
@@ -250,6 +275,13 @@ const ptBR: Dict = {
   'update.aptHint': 'sudo apt update && sudo apt install --only-upgrade my-vpns',
   'update.open': 'Notas da release',
   'update.dismiss': 'Dispensar',
+  'update.checkNow': 'Verificar atualizações',
+  'update.checking': 'Verificando…',
+  'update.upToDate': 'Você está atualizado ({version})',
+  'update.checkFailed': 'Não deu para verificar agora — vou tentar de novo.',
+  'theme.system': 'Seguir o tema do sistema',
+  'theme.light': 'Tema claro',
+  'theme.dark': 'Tema escuro',
 }
 
 const catalogs: Record<AppLocale, Dict> = {
