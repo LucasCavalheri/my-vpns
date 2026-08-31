@@ -26,6 +26,9 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run build:bundle
+      - name: Open the native Electron UI and verify the preload bridge
+        if: runner.os == 'Windows' || runner.os == 'macOS'
+        run: npx electron scripts/smoke-electron.cjs
       - name: Check macOS helper syntax
         if: runner.os == 'macOS'
         run: bash -n packaging/macos-vpn.sh
