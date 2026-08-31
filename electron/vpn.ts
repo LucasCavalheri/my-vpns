@@ -2,8 +2,10 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
+import { configDirectory } from './platform'
+import { NativeVpnSession } from './nativeVpn'
 
-export const CONFIG_DIR = '/etc/openfortivpn'
+export const CONFIG_DIR = configDirectory()
 
 export type VpnStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
@@ -36,6 +38,8 @@ export interface VpnState {
 interface LiveSession {
   profile: VpnProfile
   proc: ChildProcess | null
+  native?: NativeVpnSession
+  persistent?: number
   intentionalStop: boolean
   reconnectTimer: NodeJS.Timeout | null
   status: VpnStatus
@@ -46,12 +50,14 @@ interface LiveSession {
 const CONNECTED_MARKERS = [
   'tunnel is up and running',
   'tunnel interface is up',
-  'connected to gateway',
+  'myvpns_tunnel_up',
 ]
 
 const ERROR_MARKERS = [
   'could not authenticate',
   'authentication failed',
+  'invalid credentials',
+  'user input required',
   'permission denied',
   'failed to',
   'error:',
@@ -282,6 +288,34 @@ export class VpnManager extends EventEmitter {
     )
     this.emitLog(`→ Config: ${profile.path}`)
 
+    if (process.platform === 'darwin' || process.platform === 'win32') {
+      const native = new NativeVpnSession()
+      live.native = native
+      native.on('line', (line: string) => {
+        if (this.live.get(profileId) !== live) return
+        this.emitLog(`[${profile.id}] ${line}`)
+        // Only the network helper confirms that routes and DNS were applied.
+        if (line.includes('MYVPNS_TUNNEL_UP') || interpretVpnLogLine(line) === 'error') this.interpretLine(profileId, line)
+      })
+      native.on('close', (code: number) => {
+        if (this.live.get(profileId) !== live) return
+        live.native = undefined
+        live.persistent = native.persistent
+        if (live.intentionalStop) {
+          this.live.delete(profileId)
+        } else {
+          const previousError = live.status === 'error' ? live.message : null
+          live.status = 'error'
+          live.connectedAt = null
+          live.message = previousError || (code === 126 ? 'Autenticação cancelada' : `Conexão encerrada (código ${code})`)
+          if (code !== 126 && native.canReconnect) this.scheduleReconnect(profileId)
+        }
+        this.emitState()
+      })
+      await native.start(profile.path)
+      return
+    }
+
     const helpers = resolveHelpers()
     const args = helpers
       ? [helpers.run, profile.path]
@@ -378,6 +412,18 @@ export class VpnManager extends EventEmitter {
     live.message = 'Encerrando túnel…'
     this.emitState()
 
+    if (live.native) {
+      await live.native.stop()
+      this.live.delete(profileId)
+      this.emitLog(`← [${profileId}] Desconectado`)
+      this.emitState()
+      return
+    }
+    if (!live.proc) {
+      this.live.delete(profileId)
+      this.emitState()
+      return
+    }
     await this.stopVpn(live.profile.path)
 
     if (live.proc) {
@@ -421,6 +467,7 @@ export class VpnManager extends EventEmitter {
     const live = this.live.get(profileId)
     if (!live) return
 
+    if (live.intentionalStop) return
     const kind = interpretVpnLogLine(line)
     if (kind === 'connected') {
       live.status = 'connected'
@@ -439,16 +486,17 @@ export class VpnManager extends EventEmitter {
 
   private scheduleReconnect(profileId: string): void {
     const live = this.live.get(profileId)
-    if (!live || !this.autoReconnect || live.intentionalStop) return
+    if (!live || (!this.autoReconnect && !live.persistent) || live.intentionalStop) return
 
     this.clearReconnectTimer(live)
-    this.emitLog(`↻ [${profileId}] Reconexão automática em 4s…`)
+    const delay = live.persistent ? live.persistent * 1000 : 4000
+    this.emitLog(`↻ [${profileId}] Reconexão automática em ${delay / 1000}s…`)
     live.message = 'Aguardando reconexão automática…'
     this.emitState()
 
     live.reconnectTimer = setTimeout(() => {
       void this.connect(profileId)
-    }, 4000)
+    }, delay)
   }
 
   private clearReconnectTimer(live: LiveSession): void {

@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { CONFIG_DIR, parseVpnConfContent, type VpnProfile } from './vpn'
+import { secureDirectory } from './nativeVpn'
+import { confEntries } from './openconnect'
 
 export interface VpnProfileDraft {
   id: string
@@ -15,6 +17,8 @@ export interface VpnProfileDraft {
   setRoutes: boolean
   realm: string
   persistent: number
+  /** Preserve imported options that the visual editor does not expose. */
+  extraOptions?: [string, string][]
 }
 
 export function emptyDraft(partial?: Partial<VpnProfileDraft>): VpnProfileDraft {
@@ -82,7 +86,7 @@ export function parseVpnDraft(
   if (!host) return null
 
   const base = path.basename(filePathOrId).replace(/\.conf$/i, '')
-  const id = slugifyProfileId(base) || 'vpn'
+  const id = isValidProfileId(base) ? base : slugifyProfileId(base) || 'vpn'
 
   return {
     id,
@@ -95,11 +99,17 @@ export function parseVpnDraft(
     setRoutes: parseBool(map.get('set-routes'), true),
     realm: map.get('realm') ?? '',
     persistent: Number.parseInt(map.get('persistent') ?? '0', 10) || 0,
+    extraOptions: confEntries(raw).filter(([key], index, entries) =>
+      (key === 'trusted-cert' && index !== entries.findLastIndex(([k]) => k === 'trusted-cert')) ||
+      !['host', 'port', 'username', 'user', 'password', 'trusted-cert', 'set-dns', 'set-routes', 'realm', 'persistent'].includes(key)),
   }
 }
 
 /** Serialize draft to openfortivpn .conf format (matches current user configs). */
 export function serializeVpnDraft(draft: VpnProfileDraft): string {
+  for (const value of [draft.host, draft.username, draft.password, draft.trustedCert, draft.realm]) {
+    if (typeof value !== 'string' || /[\r\n]/.test(value) || value.includes('\0')) throw new Error('Profile fields must be single-line text.')
+  }
   const lines: string[] = [
     `host = ${draft.host.trim()}`,
     `port = ${draft.port || 443}`,
@@ -129,11 +139,20 @@ export function serializeVpnDraft(draft: VpnProfileDraft): string {
     lines.push(`persistent = ${draft.persistent}`)
   }
 
+  for (const [key, value] of draft.extraOptions || []) {
+    if (!/^[a-z][a-z0-9-]*$/.test(key) || /[\r\n]/.test(value) || value.includes('\0')) throw new Error('Invalid extra profile option.')
+    if (['host', 'port', 'username', 'user', 'password', 'set-dns', 'set-routes', 'realm', 'persistent'].includes(key)) {
+      throw new Error(`Duplicate profile option: ${key}`)
+    }
+    lines.push(`${key} = ${value}`)
+  }
+
   lines.push('')
   return lines.join('\n')
 }
 
 export function confPathForId(id: string): string {
+  if (!isValidProfileId(id)) throw new Error('Invalid profile id.')
   return path.join(CONFIG_DIR, `${id}.conf`)
 }
 
@@ -175,7 +194,7 @@ export async function saveProfileDraft(
   draft: VpnProfileDraft,
   options?: { overwrite?: boolean },
 ): Promise<{ ok: boolean; message: string; profile?: VpnProfile }> {
-  const id = slugifyProfileId(draft.id)
+  const id = isValidProfileId(draft.id) ? draft.id : slugifyProfileId(draft.id)
   if (!isValidProfileId(id)) {
     return {
       ok: false,
@@ -195,6 +214,14 @@ export async function saveProfileDraft(
   }
 
   const content = serializeVpnDraft({ ...draft, id })
+  if (process.platform !== 'linux') {
+    try {
+      await secureDirectory(CONFIG_DIR)
+      fs.writeFileSync(dest, content, { mode: 0o600, flag: options?.overwrite ? 'w' : 'wx' })
+      const profile = parseVpnConfContent(content, dest)!
+      return { ok: true, message: `Saved ${dest}`, profile }
+    } catch (err) { return { ok: false, message: err instanceof Error ? err.message : String(err) } }
+  }
   const tmp = path.join(os.tmpdir(), `my-vpns-${id}-${Date.now()}.conf`)
   fs.writeFileSync(tmp, content, { mode: 0o600 })
 
@@ -237,7 +264,7 @@ export async function saveProfileDraft(
 export async function deleteProfileFile(
   id: string,
 ): Promise<{ ok: boolean; message: string }> {
-  const safe = slugifyProfileId(id)
+  const safe = isValidProfileId(id) ? id : slugifyProfileId(id)
   if (!isValidProfileId(safe)) {
     return { ok: false, message: 'Invalid profile id.' }
   }
@@ -245,6 +272,13 @@ export async function deleteProfileFile(
   const dest = confPathForId(safe)
   if (!fs.existsSync(dest)) {
     return { ok: false, message: 'Profile file not found.' }
+  }
+
+  if (process.platform !== 'linux') {
+    try {
+      fs.unlinkSync(dest)
+      return { ok: true, message: `Deleted ${dest}` }
+    } catch (err) { return { ok: false, message: err instanceof Error ? err.message : String(err) } }
   }
 
   const { code, output } = await runPkexec(['rm', '-f', dest])

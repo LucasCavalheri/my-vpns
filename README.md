@@ -1,12 +1,14 @@
 # 🛡️ My VPNs
 
-**A Linux desktop app for managing OpenFortiVPN (FortiGate SSL) connections.**
+**A desktop app for managing FortiGate SSL VPN connections on Linux, macOS and Windows.**
+
+Linux and macOS use **openfortivpn**. Windows uses **OpenConnect 9.21 + Wintun**, translating the existing openfortivpn `.conf` format. The current Windows implementation has localhost client integration tests; macOS and full gateway connectivity still require native acceptance testing. See [platform support and validation](docs/platform-support.md) before distributing the new packages.
 
 No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tunnels, park the app in the tray, get notified when a link drops, and manage profiles without editing files by hand.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-teal.svg)](./LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Linux-blue.svg)](#-installation)
-[![Packages](https://img.shields.io/badge/packages-.deb%20%7C%20.rpm-orange.svg)](#-installation)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue.svg)](#-installation)
+[![Packages](https://img.shields.io/badge/packages-deb%20%7C%20rpm%20%7C%20dmg%20%7C%20exe-orange.svg)](#-installation)
 [![Built with](https://img.shields.io/badge/built%20with-Electron%20%2B%20React%20%2B%20TypeScript-informational.svg)](#-tech-stack)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 
@@ -17,16 +19,16 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 | Feature | What it does |
 |--------|----------------|
 | 🔌 Multi-link connect | Bring up several VPNs at the same time |
-| 📝 Profile editor | Create / edit / delete `.conf` files under `/etc/openfortivpn` |
+| 📝 Profile editor | Create / edit / delete `.conf` files in the platform's profile directory |
 | 📥 Import `.conf` | Pick an existing openfortivpn config and save it |
 | 🧺 System tray | Close the window — tunnels keep running |
 | 🔔 Notifications | Know immediately when a tunnel goes up or dies |
 | ♻️ Auto-reconnect | Optional recovery after unexpected disconnects |
-| 🚀 Start with Linux | XDG autostart (`.desktop` in `~/.config/autostart`) |
+| 🚀 Start at login | XDG autostart on Linux; native login items on macOS / Windows |
 | 🌐 pt-BR + EN | Full UI language switch, persisted |
-| 📦 Dependency bootstrap | If `openfortivpn` is missing, detect distro and install it |
-| 📜 Live console | Stream `openfortivpn` output while connected |
-| 🔐 PolicyKit auth | Graphical elevation via `pkexec` |
+| 📦 Dependency bootstrap | Detect and install the platform's VPN client |
+| 📜 Live console | Stream VPN client output while connected |
+| 🔐 Administrator authorization | PolicyKit on Linux, native administrator prompt on macOS, UAC on Windows; UI remains unprivileged |
 
 ---
 
@@ -39,6 +41,20 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 ## 🚀 Installation
 
 ### From GitHub Releases (recommended)
+
+Starting with **1.1.0-beta.1**, the release workflow builds `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Choose the [pre-release](https://github.com/LucasCavalheri/my-vpns/releases/tag/v1.1.0-beta.1) to test the new platforms; older stable releases are Linux-only. Pre-releases do not update the stable APT repository.
+
+#### macOS
+
+Install the `.dmg` matching your architecture and copy **My VPNs** to Applications. Install [Homebrew](https://brew.sh) if needed, then run `brew install openfortivpn` (or use the app's install button when Homebrew already exists). Connecting requests macOS administrator authorization. Profiles live in `~/Library/Application Support/My VPNs/profiles`.
+
+#### Windows
+
+Run the x64 `.exe` installer. On first launch, **Install now** downloads the pinned official OpenConnect 9.21 installer, checks its SHA256, and requests UAC authorization. Wintun is included; WSL and FortiClient are not required. Import your existing `.conf` through the app. Profiles live in `%APPDATA%\My VPNs\profiles`, with access restricted to your user, administrators and SYSTEM.
+
+Unsigned builds may trigger SmartScreen / Gatekeeper. Production signing and macOS notarization require the maintainer's certificates; see [distribution notes](docs/platform-support.md#distribution).
+
+#### Linux
 
 1. Open [Releases](https://github.com/LucasCavalheri/my-vpns/releases)
 2. Download either:
@@ -68,7 +84,7 @@ Then launch **My VPNs** from your app menu. Packaged binary typically lives at:
 
 ### How to publish a release
 
-**Automatic (preferred):** push a version tag — CI builds `.deb`/`.rpm` and creates the GitHub Release.
+**Automatic (preferred):** push a version tag — CI builds Linux, macOS and Windows installers and creates the GitHub Release.
 
 ```bash
 # 1) bump version in package.json (e.g. 1.0.1)
@@ -98,7 +114,7 @@ The matching private key must be configured once as the GitHub Actions secret
 `APT_SIGNING_KEY`; it must never be committed to the repository.
 The key fingerprint is `A9F137BEE74B623131071358FB0EC1D5A01262F0`.
 
-### Requirements
+### Linux requirements
 
 | Requirement | Notes |
 |-------------|--------|
@@ -149,7 +165,7 @@ set-routes = 1
 
 ### Privacy notes
 
-- 🔒 Credentials are stored in the `.conf` files under `/etc/openfortivpn` (same model as CLI openfortivpn)
+- 🔒 Credentials are stored in plaintext `.conf` files in the platform's profile directory (same model as CLI openfortivpn); native directories have restricted access
 - 👁️ The main list shows host/port/username — not the password
 - 🧾 Harden directory permissions on shared machines (`chmod` / root-only reads as needed)
 - 🚫 Never commit personal `.conf` files or passwords to git
@@ -160,8 +176,8 @@ set-routes = 1
 
 1. Open **My VPNs**
 2. Create, import, or pick an existing profile
-3. Click **Bring up** / **Conectar** and approve the PolicyKit prompt
-4. Optionally enable **Auto-relink**, **Start with Linux**, and switch **PT / EN**
+3. Click **Bring up** / **Conectar** and approve your system's administrator prompt
+4. Optionally enable **Auto-relink**, **Start at login**, and switch **PT / EN**
 5. Close the window anytime — it keeps running in the tray
 6. Fully quit from the tray menu
 
@@ -181,7 +197,7 @@ set-routes = 1
 
 - Node.js **22+** (recommended)
 - npm
-- Linux desktop session (Wayland or X11)
+- A Linux desktop, Windows x64, or macOS host (build macOS packages on macOS)
 - For RPM builds: `rpm` / `rpmbuild` (`sudo apt install rpm` on Debian/Ubuntu)
 
 ### Setup
@@ -199,7 +215,10 @@ npm run dev
 |---------|-------------|
 | `npm run dev` | Electron + Vite hot reload |
 | `npm test` | Run unit tests |
-| `npm run build` | Typecheck, bundle, and build **`.deb` + `.rpm`** |
+| `npm run build` | Typecheck, bundle, and package for the current host |
+| `npm run build:win` | Build the Windows x64 NSIS installer |
+| `npm run build:mac` | Build macOS Intel / Apple Silicon DMG and ZIP (run on macOS) |
+| `npm run build:bundle` | Typecheck and bundle without creating an installer |
 | `npm run build:deb` | Build Debian package only |
 | `npm run build:rpm` | Build RPM package only |
 | `npm run lint` | Run oxlint |
@@ -249,7 +268,7 @@ my-vpns/
 └── release/            # Built packages (generated, not committed)
 ```
 
-### Under the hood
+### Under the hood (Linux)
 
 1. Profiles are discovered from `/etc/openfortivpn/*.conf`
 2. Connect runs through PolicyKit helpers (`/usr/lib/my-vpns/` after package install)
@@ -273,9 +292,9 @@ Installed helper paths:
 - ⚛️ **React 19** + **TypeScript** — UI
 - 🌀 **Vite** — fast dev & bundling
 - 🎨 **Tailwind CSS v4** — styling
-- 📦 **electron-builder** — `.deb` / `.rpm` packaging
+- 📦 **electron-builder** — Linux, macOS and Windows packaging
 - 🧪 **Vitest** — unit tests
-- 🔐 **PolicyKit** — privilege elevation without a permanent root shell
+- 🔐 **Native authorization** — PolicyKit, macOS administrator prompt, or Windows UAC
 
 ---
 
@@ -334,7 +353,7 @@ Have a better idea? Open an issue or PR 💬
 ## ⚠️ Security
 
 - Elevated privileges are required to create VPN tunnels and write under `/etc/openfortivpn` — expected
-- Elevation goes through **PolicyKit**, not a setuid binary
+- Elevation goes through PolicyKit on Linux, the macOS administrator prompt, or Windows UAC
 - Review `/etc/openfortivpn/*.conf` permissions on shared machines
 - Never paste passwords into issues or PRs
 
@@ -356,6 +375,6 @@ Released under the [MIT License](./LICENSE).
 ---
 
 <p align="center">
-  <strong>Made for Linux people who just want the tunnel up. 🛡️✨</strong><br/>
+  <strong>For people who just want the tunnel up. 🛡️✨</strong><br/>
   <sub>Star the repo if it helps — it keeps the project visible for new contributors.</sub>
 </p>

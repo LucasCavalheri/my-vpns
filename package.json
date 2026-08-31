@@ -3,7 +3,7 @@
   "productName": "My VPNs",
   "desktopName": "my-vpns",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.1.0-beta.1",
   "description": "Gerenciador gráfico para conexões OpenFortiVPN",
   "author": {
     "name": "LucasCavalheri",
@@ -19,14 +19,17 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && electron-builder --linux deb rpm --publish never",
+    "build": "npm run build:bundle && electron-builder --publish never",
     "build:deb": "tsc -b && vite build && electron-builder --linux deb --publish never",
     "build:rpm": "tsc -b && vite build && electron-builder --linux rpm --publish never",
-    "build:dir": "tsc -b && vite build && electron-builder --linux deb --dir --publish never",
+    "build:dir": "npm run build:bundle && electron-builder --dir --publish never",
     "preview": "vite preview",
     "lint": "oxlint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build:bundle": "tsc -b && vite build",
+    "build:win": "npm run build:bundle && electron-builder --win nsis --x64 --publish never",
+    "build:mac": "npm run build:bundle && electron-builder --mac dmg zip --arm64 --x64 --publish never"
   },
   "dependencies": {
     "lucide-react": "^1.25.0",
@@ -63,27 +66,6 @@
       "dist-electron/**/*",
       "build/icon.png"
     ],
-    "extraResources": [
-      {
-        "from": "packaging/run-vpn.sh",
-        "to": "helpers/run-vpn.sh"
-      },
-      {
-        "from": "packaging/stop-vpn.sh",
-        "to": "helpers/stop-vpn.sh"
-      },
-      {
-        "from": "packaging/polkit",
-        "to": "polkit",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "packaging/my-vpns-archive-keyring.asc",
-        "to": "my-vpns-archive-keyring.asc"
-      }
-    ],
     "linux": {
       "target": [
         "deb",
@@ -103,7 +85,28 @@
           "Categories": "Network;Security;",
           "StartupWMClass": "my-vpns"
         }
-      }
+      },
+      "extraResources": [
+        {
+          "from": "packaging/run-vpn.sh",
+          "to": "helpers/run-vpn.sh"
+        },
+        {
+          "from": "packaging/stop-vpn.sh",
+          "to": "helpers/stop-vpn.sh"
+        },
+        {
+          "from": "packaging/polkit",
+          "to": "polkit",
+          "filter": [
+            "**/*"
+          ]
+        },
+        {
+          "from": "packaging/my-vpns-archive-keyring.asc",
+          "to": "my-vpns-archive-keyring.asc"
+        }
+      ]
     },
     "deb": {
       "depends": [
@@ -125,6 +128,48 @@
       ],
       "afterInstall": "packaging/after-install.sh",
       "afterRemove": "packaging/after-remove.sh"
+    },
+    "mac": {
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
+      "extraResources": [
+        {
+          "from": "packaging/macos-vpn.sh",
+          "to": "helpers/macos-vpn.sh"
+        }
+      ],
+      "icon": "build/icon.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "extraResources": [
+        {
+          "from": "packaging/windows-vpn.ps1",
+          "to": "helpers/windows-vpn.ps1"
+        },
+        {
+          "from": "packaging/windows-network.ps1",
+          "to": "helpers/windows-network.ps1"
+        },
+        {
+          "from": "packaging/vpnc-script-win.js",
+          "to": "helpers/vpnc-script-win.js"
+        }
+      ],
+      "icon": "build/icon.png",
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "${productName}-${version}-windows-${arch}-setup.${ext}"
+    },
+    "nsis": {
+      "perMachine": true,
+      "oneClick": false,
+      "deleteAppDataOnUninstall": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

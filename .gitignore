@@ -13,6 +13,7 @@ dist-electron
 release
 *.deb
 .vite
+.tmp
 
 # Env / secrets
 .env

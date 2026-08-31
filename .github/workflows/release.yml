@@ -10,7 +10,48 @@ permissions:
   pages: write
 
 jobs:
+  build-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            command: build:win
+          - os: macos-latest
+            command: build:mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Prepare real Windows client for localhost tests
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/prepare-windows-test.ps1
+      - run: npm test
+      - run: npm run lint
+      - run: npm run ${{ matrix.command }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+
   build-and-release:
+    needs: build-native
     runs-on: ubuntu-latest
 
     steps:
@@ -44,17 +85,41 @@ jobs:
           cp release/*.deb release/*.rpm dist-release/
           ls -lh dist-release
 
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          merge-multiple: true
+          path: dist-release
+
       - name: Create / update GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           TAG="${{ github.ref_name }}"
-          NOTES=$(cat <<'EOF'
+          FLAGS=()
+          if [[ "$TAG" == *-* ]]; then
+            FLAGS+=(--prerelease --latest=false)
+          fi
+          cat > release-notes.md <<'EOF'
           ## Packages
 
           - `.deb` — Debian / Ubuntu / Mint
           - `.rpm` — Fedora / RHEL / Rocky / Alma / openSUSE
+          - `.dmg` / `.zip` — macOS, Intel and Apple Silicon (requires openfortivpn via Homebrew)
+          - `.exe` — Windows x64 (setup installs OpenConnect 9.21 on first use)
+
+          All platforms import openfortivpn `.conf` profiles. See the README for
+          Windows option compatibility and signing / notarization notes.
+
+          ### New platform preview
+
+          Windows and macOS support is new. Automated checks cover profile
+          translation, local TLS/authentication and network cleanup logic;
+          a real FortiGate connection still requires validation on your machine.
+          Windows currently supports IPv4 SSL VPN. SAML and all MFA variants
+          are not verified. The packages may trigger SmartScreen/Gatekeeper
+          warnings when signing credentials are not configured.
 
           ### Install / upgrade (Debian & Ubuntu)
 
@@ -82,20 +147,22 @@ jobs:
           sudo dnf install ./my-vpns-*.x86_64.rpm
           ```
           EOF
-          )
-          # strip common leading indent from the heredoc body
-          NOTES="$(printf '%s\n' "$NOTES" | sed 's/^          //')"
+
+          if [[ "$TAG" == *-* ]]; then
+            printf '\nThis is a pre-release for manual testing. It is not published to the stable APT repository.\n' >> release-notes.md
+          fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" dist-release/* --clobber
-            gh release edit "$TAG" --notes "$NOTES"
+            gh release edit "$TAG" --notes-file release-notes.md "${FLAGS[@]}"
           else
             gh release create "$TAG" dist-release/* \
               --title "My VPNs ${TAG}" \
-              --notes "$NOTES"
+              --notes-file release-notes.md "${FLAGS[@]}"
           fi
 
       - name: Publish APT repo to GitHub Pages
+        if: ${{ !contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}

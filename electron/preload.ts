@@ -29,7 +29,7 @@ export interface MyVpnsApi {
   setAutoReconnect: (enabled: boolean) => Promise<void>
   minimizeToTray: () => Promise<void>
   getDependencyStatus: () => Promise<DependencyStatus>
-  installOpenfortivpn: () => Promise<InstallResult>
+  installVpnClient: () => Promise<InstallResult>
   getSettings: () => Promise<AppSettingsView>
   setLocale: (locale: AppLocale) => Promise<{ locale: AppLocale }>
   setTheme: (
@@ -70,7 +70,7 @@ const api: MyVpnsApi = {
     ipcRenderer.invoke('vpn:setAutoReconnect', enabled),
   minimizeToTray: () => ipcRenderer.invoke('app:minimizeToTray'),
   getDependencyStatus: () => ipcRenderer.invoke('deps:status'),
-  installOpenfortivpn: () => ipcRenderer.invoke('deps:installOpenfortivpn'),
+  installVpnClient: () => ipcRenderer.invoke('deps:installVpnClient'),
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setLocale: (locale) => ipcRenderer.invoke('settings:setLocale', locale),
   setTheme: (theme) => ipcRenderer.invoke('theme:set', theme),

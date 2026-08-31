@@ -33,7 +33,7 @@ export function SetupGate({ status, onInstalled }: Props) {
     setError(null)
     setLogs([])
     try {
-      const result: InstallResult = await window.myVpns.installOpenfortivpn()
+      const result: InstallResult = await window.myVpns.installVpnClient()
       if (result.ok) {
         onInstalled(result.status)
       } else {
@@ -51,7 +51,7 @@ export function SetupGate({ status, onInstalled }: Props) {
     setError(null)
     try {
       const next = await window.myVpns.getDependencyStatus()
-      if (next.openfortivpnInstalled) {
+      if (next.clientInstalled) {
         onInstalled(next)
       } else {
         setError(t('setup.stillMissing'))
@@ -72,13 +72,13 @@ export function SetupGate({ status, onInstalled }: Props) {
             <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">
               {t('setup.missing')}
             </p>
-            <h1 className="text-xl font-bold tracking-tight">openfortivpn</h1>
+            <h1 className="text-xl font-bold tracking-tight">{status.engine}</h1>
           </div>
         </div>
 
         <div className="space-y-4 px-6 py-5">
           <p className="text-sm leading-relaxed text-muted">
-            {t('setup.needsClient')}{' '}
+            {t('setup.needsClient', { engine: status.engine })}{' '}
             <strong className="font-semibold text-ink">
               {status.distro.pretty}
             </strong>
@@ -91,10 +91,14 @@ export function SetupGate({ status, onInstalled }: Props) {
             </div>
             <div className="mt-2 break-all">
               {status.installCommand
-                ? `pkexec ${status.installCommand}`
+                ? status.installCommand
                 : t('setup.noAutoInstall')}
             </div>
           </div>
+
+          {status.platform === 'darwin' && !status.canAutoInstall && (
+            <p className="text-sm text-muted">{t('setup.homebrew')}</p>
+          )}
 
           {error && (
             <p className="rounded-lg border border-fault/25 bg-fault-soft px-3 py-2 font-mono text-xs break-all text-fault">

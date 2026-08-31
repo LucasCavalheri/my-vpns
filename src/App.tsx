@@ -142,7 +142,7 @@ function Desk() {
         setThemePref(settings.theme)
         setAppVersion(settings.version)
         setDeps(status)
-        setDepsReady(status.openfortivpnInstalled)
+        setDepsReady(status.clientInstalled)
         setBootError(null)
       } catch (err) {
         if (cancelled) return
@@ -386,7 +386,7 @@ function Desk() {
 
         <div className="flex shrink-0 items-center gap-3">
           <span className="hidden font-mono text-[11px] text-muted md:block">
-            /etc/openfortivpn
+            {deps?.configDir}
           </span>
           <StatusPill status={summary.overall} />
         </div>

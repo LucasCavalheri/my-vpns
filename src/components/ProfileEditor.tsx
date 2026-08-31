@@ -70,6 +70,9 @@ export function ProfileEditor({
         </div>
 
         <div className="console-scroll min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          {Boolean(draft.extraOptions?.length) && (
+            <p className="mb-4 text-xs text-muted">{t('form.extraOptions', { count: draft.extraOptions!.length })}</p>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <Field label={t('form.id')} hint={t('form.idHint')}>
               <input

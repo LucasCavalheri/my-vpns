@@ -1,7 +1,11 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { execFile } from 'node:child_process'
 import { spawn } from 'node:child_process'
 import { promisify } from 'node:util'
+import systemOs from 'node:os'
+import { configDirectory, engineForPlatform, findVpnBinary, type VpnEngine } from './platform'
+import { findBrew, installNativeClient } from './installNative'
 
 const execFileAsync = promisify(execFile)
 
@@ -11,6 +15,8 @@ export type PackageFamily =
   | 'yum'
   | 'zypper'
   | 'pacman'
+  | 'brew'
+  | 'windows'
   | 'unknown'
 
 export interface DistroInfo {
@@ -23,9 +29,12 @@ export interface DistroInfo {
 }
 
 export interface DependencyStatus {
-  openfortivpnInstalled: boolean
-  openfortivpnPath: string | null
-  openfortivpnVersion: string | null
+  engine: VpnEngine
+  configDir: string
+  platform: NodeJS.Platform
+  clientInstalled: boolean
+  clientPath: string | null
+  clientVersion: string | null
   distro: DistroInfo
   canAutoInstall: boolean
   installCommand: string | null
@@ -189,6 +198,11 @@ export function buildInstallPlan(family: PackageFamily): {
 }
 
 export function detectDistro(): DistroInfo {
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    const mac = process.platform === 'darwin'
+    return { id: process.platform, name: mac ? 'macOS' : 'Windows', version: systemOs.release(), like: [],
+      family: mac ? 'brew' : 'windows', pretty: mac ? 'macOS' : 'Windows' }
+  }
   const os = parseOsRelease()
   const id = (os.ID ?? 'linux').toLowerCase()
   const like = (os.ID_LIKE ?? '')
@@ -203,29 +217,15 @@ export function detectDistro(): DistroInfo {
   return { id, name, version, like, family, pretty }
 }
 
-function whichSync(bin: string): string | null {
-  const dirs = (process.env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin')
-    .split(':')
-    .filter(Boolean)
-  for (const dir of dirs) {
-    const full = `${dir}/${bin}`
-    try {
-      fs.accessSync(full, fs.constants.X_OK)
-      return full
-    } catch {
-      // continue
-    }
-  }
-  return null
-}
-
 async function readOpenfortivpnVersion(bin: string): Promise<string | null> {
   try {
     const { stdout, stderr } = await execFileAsync(bin, ['--version'], {
       timeout: 5000,
+      windowsHide: true,
     })
     const text = `${stdout}\n${stderr}`.trim()
-    const line = text.split(/\r?\n/).find(Boolean)
+    if (process.platform === 'win32' && (!text.includes('fortinet') || !fs.existsSync(path.join(path.dirname(bin), 'wintun.dll')))) return null
+    const line = text.split(/\r?\n/).find(line => /version|^\d+\.\d+/i.test(line))
     return line ?? null
   } catch {
     return null
@@ -235,19 +235,23 @@ async function readOpenfortivpnVersion(bin: string): Promise<string | null> {
 export async function getDependencyStatus(): Promise<DependencyStatus> {
   const distro = detectDistro()
   const plan = buildInstallPlan(distro.family)
-  const openfortivpnPath = whichSync('openfortivpn')
-  const openfortivpnInstalled = Boolean(openfortivpnPath)
-  const openfortivpnVersion = openfortivpnPath
-    ? await readOpenfortivpnVersion(openfortivpnPath)
+  const clientPath = findVpnBinary()
+  const clientVersion = clientPath
+    ? await readOpenfortivpnVersion(clientPath)
     : null
+  const clientInstalled = Boolean(clientPath && clientVersion)
 
   return {
-    openfortivpnInstalled,
-    openfortivpnPath,
-    openfortivpnVersion,
+    engine: engineForPlatform(),
+    configDir: configDirectory(),
+    platform: process.platform,
+    clientInstalled,
+    clientPath,
+    clientVersion,
     distro,
-    canAutoInstall: plan.canAutoInstall,
-    installCommand: plan.installCommand,
+    canAutoInstall: process.platform === 'win32' || (process.platform === 'darwin' ? Boolean(findBrew()) : plan.canAutoInstall),
+    installCommand: process.platform === 'win32' ? 'OpenConnect 9.21 + Wintun (Windows administrator prompt)'
+      : process.platform === 'darwin' ? 'brew install openfortivpn' : plan.installCommand ? `pkexec ${plan.installCommand}` : null,
   }
 }
 
@@ -271,12 +275,18 @@ function runPkexec(args: string[]): Promise<{ code: number | null; output: strin
   })
 }
 
-export async function installOpenfortivpn(
+export async function installVpnClient(
   onLog?: (line: string) => void,
 ): Promise<InstallResult> {
   const before = await getDependencyStatus()
-  if (before.openfortivpnInstalled) {
+  if (before.clientInstalled) {
     return { ok: true, code: 0, output: 'Já instalado', status: before }
+  }
+
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    const { code, output } = await installNativeClient(onLog)
+    const status = await getDependencyStatus()
+    return { code, output, ok: status.clientInstalled, status }
   }
 
   const plan = buildInstallPlan(before.distro.family)
@@ -303,7 +313,7 @@ export async function installOpenfortivpn(
 
   const status = await getDependencyStatus()
 
-  if (!status.openfortivpnInstalled && (code === 126 || code === 127)) {
+  if (!status.clientInstalled && (code === 126 || code === 127)) {
     return {
       ok: false,
       code,
@@ -313,11 +323,11 @@ export async function installOpenfortivpn(
   }
 
   return {
-    ok: status.openfortivpnInstalled,
+    ok: status.clientInstalled,
     code,
     output:
       output ||
-      (status.openfortivpnInstalled
+      (status.clientInstalled
         ? 'Instalação concluída'
         : 'Falha ao instalar openfortivpn'),
     status,

@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { VpnManager, summarizeVpnState, type VpnProfile, type VpnState } from './vpn'
 import {
   getDependencyStatus,
-  installOpenfortivpn,
+  installVpnClient,
 } from './deps'
 import {
   getAutostartPath,
@@ -51,6 +51,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('no-sandbox')
 }
+if (process.platform === 'win32') app.setAppUserModelId('dev.cavallheri.myvpns')
 
 process.env.APP_ROOT = path.join(__dirname, '..')
 
@@ -68,6 +69,7 @@ const startHidden =
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
+let tunnelsStopped = false
 const vpn = new VpnManager()
 let lastConnected = new Set<string>()
 let locale: AppLocale = 'en'
@@ -149,7 +151,8 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    if (!startHidden) mainWindow?.show()
+    const loginLaunch = process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin
+    if (!startHidden && !loginLaunch) mainWindow?.show()
   })
 
   mainWindow.on('close', (event) => {
@@ -292,8 +295,7 @@ function buildTrayMenu(): Menu {
     {
       label: t('tray.quit'),
       click: () => {
-        quitting = true
-        void vpn.disconnect().finally(() => app.quit())
+        app.quit()
       },
     },
   ])
@@ -387,8 +389,8 @@ function registerIpc(): void {
     mainWindow?.hide()
   })
   ipcMain.handle('deps:status', () => getDependencyStatus())
-  ipcMain.handle('deps:installOpenfortivpn', async (event) => {
-    return installOpenfortivpn((line) => {
+  ipcMain.handle('deps:installVpnClient', async (event) => {
+    return installVpnClient((line) => {
       event.sender.send('deps:installLog', line)
     })
   })
@@ -489,7 +491,14 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
+  if (!tunnelsStopped) {
+    event.preventDefault()
+    if (quitting) return
+    quitting = true
+    void vpn.disconnect().finally(() => { tunnelsStopped = true; app.quit() })
+    return
+  }
   quitting = true
   if (updateTimer) clearTimeout(updateTimer)
 })

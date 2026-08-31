@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
 
 const AUTOSTART_DIR = path.join(os.homedir(), '.config', 'autostart')
 const DESKTOP_FILE = path.join(AUTOSTART_DIR, 'my-vpns.desktop')
@@ -44,6 +46,10 @@ export function buildAutostartDesktopEntry(exec: string): string {
 
 export function isAutostartEnabled(): boolean {
   try {
+    if (process.platform !== 'linux') {
+      const { app } = require('electron') as typeof import('electron')
+      return app.getLoginItemSettings(process.platform === 'win32' ? { path: process.execPath, args: ['--hidden'] } : undefined).openAtLogin
+    }
     if (!fs.existsSync(DESKTOP_FILE)) return false
     const raw = fs.readFileSync(DESKTOP_FILE, 'utf8')
     if (/X-GNOME-Autostart-enabled\s*=\s*false/i.test(raw)) return false
@@ -56,6 +62,14 @@ export function isAutostartEnabled(): boolean {
 
 export function setAutostartEnabled(enabled: boolean): boolean {
   try {
+    if (process.platform !== 'linux') {
+      const { app } = require('electron') as typeof import('electron')
+      if (!app.isPackaged) return false // Do not register a development checkout.
+      app.setLoginItemSettings(process.platform === 'win32'
+        ? { openAtLogin: enabled, path: process.execPath, args: ['--hidden'] }
+        : { openAtLogin: enabled })
+      return isAutostartEnabled() === enabled
+    }
     if (!enabled) {
       if (fs.existsSync(DESKTOP_FILE)) fs.unlinkSync(DESKTOP_FILE)
       return true
@@ -75,5 +89,7 @@ export function setAutostartEnabled(enabled: boolean): boolean {
 }
 
 export function getAutostartPath(): string {
+  if (process.platform === 'darwin') return 'System Settings > General > Login Items'
+  if (process.platform === 'win32') return 'Windows Settings > Apps > Startup'
   return DESKTOP_FILE
 }

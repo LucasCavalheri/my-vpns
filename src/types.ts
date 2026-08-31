@@ -10,6 +10,8 @@ export type PackageFamily =
   | 'yum'
   | 'zypper'
   | 'pacman'
+  | 'brew'
+  | 'windows'
   | 'unknown'
 
 export interface DistroInfo {
@@ -22,9 +24,12 @@ export interface DistroInfo {
 }
 
 export interface DependencyStatus {
-  openfortivpnInstalled: boolean
-  openfortivpnPath: string | null
-  openfortivpnVersion: string | null
+  engine: 'openfortivpn' | 'openconnect'
+  configDir: string
+  platform: string
+  clientInstalled: boolean
+  clientPath: string | null
+  clientVersion: string | null
   distro: DistroInfo
   canAutoInstall: boolean
   installCommand: string | null
@@ -73,6 +78,7 @@ export interface VpnProfileDraft {
   setRoutes: boolean
   realm: string
   persistent: number
+  extraOptions?: [string, string][]
 }
 
 export interface ProfileWriteResult {
@@ -109,7 +115,7 @@ export interface MyVpnsApi {
   setAutoReconnect: (enabled: boolean) => Promise<void>
   minimizeToTray: () => Promise<void>
   getDependencyStatus: () => Promise<DependencyStatus>
-  installOpenfortivpn: () => Promise<InstallResult>
+  installVpnClient: () => Promise<InstallResult>
   getSettings: () => Promise<AppSettingsView>
   setLocale: (locale: AppLocale) => Promise<{ locale: AppLocale }>
   setAutostart: (
