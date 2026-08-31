@@ -13,6 +13,8 @@ export interface OpenConnectPlan {
   persistent: number
   healthHost?: string
   healthPort?: number
+  noDtls?: boolean
+  legacyTunnel?: boolean
 }
 
 /** App metadata stays in comments so the same file still works with openfortivpn. */
@@ -23,6 +25,19 @@ export function profileHealthCheck(raw: string): { healthHost?: string; healthPo
   const port = Number(portText)
   if (!host || isIP(host) !== 4 || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('VPN health check requires an IPv4 address and a TCP port (1–65535).')
   return { healthHost: host, healthPort: port }
+}
+
+/** Some FortiGate appliances advertise DTLS but reject the OpenConnect
+ * Fortinet DTLS hello. Keep this opt-in in comments so the original
+ * openfortivpn .conf remains valid and other profiles can keep DTLS. */
+export function profileNoDtls(raw: string): boolean {
+  return /^\s*#\s*my-vpns-no-dtls\s*=\s*(?:1|true|yes|on)\s*$/im.test(raw)
+}
+
+/** Some hosted FortiGate gateways require the legacy openfortivpn request
+ * sequence (a fresh TLS connection and `Host: sslvpn` for the tunnel). */
+export function profileLegacyTunnel(raw: string): boolean {
+  return /^\s*#\s*my-vpns-legacy-tunnel\s*=\s*(?:1|true|yes|on)\s*$/im.test(raw)
 }
 
 export function confEntries(raw: string): [string, string][] {
@@ -58,6 +73,8 @@ export function buildOpenConnectPlan(raw: string): OpenConnectPlan {
   const persistent = Number(values.get('persistent') || 0)
   if (!Number.isInteger(persistent) || persistent < 0) throw new Error('Invalid persistent interval.')
   const args = ['--protocol=fortinet', '--passwd-on-stdin', '--disable-ipv6', '--force-dpd=10']
+  const noDtls = profileNoDtls(raw)
+  if (noDtls) args.push('--no-dtls')
   if (!values.get('otp')) args.push('--non-inter')
   const user = values.get('username') ?? values.get('user')
   if (user) args.push(`--user=${user}`)
@@ -73,7 +90,8 @@ export function buildOpenConnectPlan(raw: string): OpenConnectPlan {
   if (trustedCerts.some(pin => !/^[a-f0-9]{64}$/.test(pin))) throw new Error('trusted-cert must be a complete SHA256 certificate fingerprint (64 hex characters).')
   const password = values.get('password') || ''
   const otp = values.get('otp')
-  return { ...profileHealthCheck(raw), args, password: password + '\n' + (otp ? otp + '\n' : ''), host, port, trustedCerts,
+  const legacyTunnel = profileLegacyTunnel(raw)
+  return { ...profileHealthCheck(raw), noDtls, legacyTunnel, args, password: password + '\n' + (otp ? otp + '\n' : ''), host, port, trustedCerts,
     persistent, setDns: bool(values.get('set-dns'), true), setRoutes: bool(values.get('set-routes'), true) }
 }
 

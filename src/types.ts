@@ -80,6 +80,8 @@ export interface VpnProfileDraft {
   persistent: number
   healthHost?: string
   healthPort?: number
+  noDtls?: boolean
+  legacyTunnel?: boolean
   extraOptions?: [string, string][]
 }
 

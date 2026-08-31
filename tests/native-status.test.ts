@@ -15,7 +15,7 @@ describe('native tunnel health and authentication policy', () => {
     expect(interpretVpnLogLine('MYVPNS_NETWORK_READY')).toBeNull()
   })
 
-  it.each(['Cookie was rejected by server; exiting.', 'Server reports that reconnect-after-drop is not allowed.', 'Invalid credentials', 'VPN certificate does not match trusted-cert.'])('does not repeat a forbidden or failed authentication: %s', line => {
+  it.each(['Cookie was rejected by server; exiting.', 'Cookie is no longer valid, ending session', 'Server reports that reconnect-after-drop is not allowed.', 'Invalid credentials', 'VPN certificate does not match trusted-cert.'])('does not repeat a forbidden or failed authentication: %s', line => {
     expect(preventsReconnect(line, true)).toBe(true)
   })
 

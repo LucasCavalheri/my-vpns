@@ -29,11 +29,11 @@ async function network(dns: number, routes: number, ...flags: string[]) {
 }
 
 describe.skipIf(process.platform !== 'win32')('Windows networking helper with mocked OS cmdlets', { timeout: 25000 }, () => {
-  it('rechecks transient service failures without false green status, but immediately stops on topology loss', async () => {
+  it('keeps the tunnel connected through transient service failures, but stops on topology loss', async () => {
     const { stdout } = await execFileAsync(powershellPath, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.resolve('tests/fixtures/health-policy-harness.ps1')], { windowsHide: true, timeout: 20000 })
     const result = JSON.parse(stdout.trim())
-    expect(result.sequence.map((d: { phase: string }) => d.phase)).toEqual(['verifying', 'verifying', 'connected', 'verifying', 'verifying', 'disconnected'])
-    expect(result.sequence.map((d: { failures: number }) => d.failures)).toEqual([1, 2, 0, 1, 2, 0])
+    expect(result.sequence.map((d: { phase: string }) => d.phase)).toEqual(['connected', 'connected', 'connected', 'connected', 'connected', 'connected'])
+    expect(result.sequence.map((d: { failures: number }) => d.failures)).toEqual([1, 2, 0, 1, 2, 3])
     expect(result.networkLoss.phase).toBe('disconnected')
     expect(result.starting.phase).toBe('waiting')
     expect(result.startupExpired.phase).toBe('disconnected')
@@ -68,6 +68,12 @@ describe.skipIf(process.platform !== 'win32')('Windows networking helper with mo
   it('retains a transport route still needed by another active VPN', async () => {
     const result = await network(1, 1, '-Shared')
     expect(result.remaining.map(r => r.prefix)).toEqual(['203.0.113.5/32'])
+  })
+
+  it('does not remove a route that existed before the VPN session', async () => {
+    const result = await network(1, 1, '-Preexisting')
+    expect(result.remaining.map(r => r.prefix)).toEqual(['198.18.0.0/24'])
+    expect(result.operations.filter(op => op.action === 'route-remove')).toHaveLength(1)
   })
 
   it('removes owned routes when Windows TEMP uses short 8.3 path aliases', async () => {

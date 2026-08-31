@@ -102,9 +102,13 @@ function Add-OwnedRoute([string]$prefix, [int]$index, [string]$nextHop) {
     $script:state.expectedRoutes += @{ prefix=$prefix; index=$index; nextHop=$nextHop }
     Save-State
     $exists = Get-NetRoute -DestinationPrefix $prefix -InterfaceIndex $index -NextHop $nextHop -ErrorAction SilentlyContinue
-    if (!$exists -or (Other-UsesRoute $prefix $index $nextHop)) {
+    $shared = $exists -and (Other-UsesRoute $prefix $index $nextHop)
+    if (!$exists -or $shared) {
         # Record intent first so a partial failure can still be rolled back.
-        $script:state.routes += @{ prefix=$prefix; index=$index; nextHop=$nextHop }
+        # A route already provided by another My VPN session is referenced but
+        # never owned by this session. This keeps the final disconnect from
+        # deleting a route that was present before this tunnel started.
+        $script:state.routes += @{ prefix=$prefix; index=$index; nextHop=$nextHop; owned=(!$exists) }
         Save-State
         if (!$exists) { New-NetRoute -DestinationPrefix $prefix -InterfaceIndex $index -NextHop $nextHop -RouteMetric 1 -PolicyStore ActiveStore | Out-Null }
     }
@@ -124,6 +128,7 @@ function Restore-Network {
     }
     $adapter = Get-NetAdapter -IncludeHidden | Where-Object { $_.ifIndex -eq $saved.index } | Select-Object -First 1
     foreach ($route in $saved.routes) {
+        if ($null -ne $route.owned -and !$route.owned) { continue }
         if ($route.index -eq $saved.index -and (!$adapter -or $adapter.InterfaceGuid.ToString() -ne $saved.guid)) { continue }
         if (Other-UsesRoute $route.prefix $route.index $route.nextHop) { continue }
         Get-NetRoute -DestinationPrefix $route.prefix -InterfaceIndex $route.index -NextHop $route.nextHop -ErrorAction SilentlyContinue |
@@ -153,7 +158,10 @@ function Restore-Network {
 $mutex = New-Object Threading.Mutex($false, 'Global\MyVPNsNetwork-v1')
 $locked = $false
 try {
-    try { $locked = $mutex.WaitOne(3000) } catch [Threading.AbandonedMutexException] { $locked = $true }
+    # The vpnc callback can have printed NETWORK_READY while its process is
+    # still flushing stdout and releasing the same mutex. Give that short
+    # hand-off time to finish instead of tearing down a valid tunnel.
+    try { $locked = $mutex.WaitOne(15000) } catch [Threading.AbandonedMutexException] { $locked = $true }
     if (!$locked) { throw 'Timed out waiting for another VPN network operation.' }
     if ($Action -eq 'disconnect') { Restore-Network; return }
     if ($Action -in @('check', 'ready')) {

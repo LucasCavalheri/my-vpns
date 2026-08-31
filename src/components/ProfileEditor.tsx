@@ -156,6 +156,15 @@ export function ProfileEditor({
               <input type="number" min={1} max={65535} value={draft.healthPort || ''} onChange={(e) => patch('healthPort', Number(e.target.value) || undefined)} className="field-input" />
             </Field>
 
+            <label className="flex items-center gap-2 rounded-lg border border-line bg-app px-4 py-3 text-sm font-medium md:col-span-2">
+              <input type="checkbox" className="accent-accent" checked={Boolean(draft.noDtls)} onChange={(e) => patch('noDtls', e.target.checked)} />
+              <span>{t('form.noDtls')}<span className="ml-2 text-xs font-normal text-muted">{t('form.noDtlsHint')}</span></span>
+            </label>
+            <label className="flex items-start gap-2 text-sm font-medium">
+              <input type="checkbox" className="accent-accent" checked={Boolean(draft.legacyTunnel)} onChange={(e) => patch('legacyTunnel', e.target.checked)} />
+              <span>{t('form.legacyTunnel')}<span className="ml-2 text-xs font-normal text-muted">{t('form.legacyTunnelHint')}</span></span>
+            </label>
+
             <Field label={t('form.persistent')} hint={t('form.persistentHint')}>
               <input
                 type="number"

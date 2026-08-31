@@ -337,6 +337,15 @@ function wireVpnEvents(): void {
         .filter((s) => s.status === 'connected')
         .map((s) => s.profileId),
     )
+    // Keep a previously healthy session in the notification set while it is
+    // briefly connecting. A status transition during supervisor hand-off is
+    // not evidence that the tunnel fell; only an explicit disconnected/error
+    // state (or removal) should produce a Windows disconnect notification.
+    const transitional = new Set(
+      Object.values(state.sessions)
+        .filter((s) => s.status === 'connecting')
+        .map((s) => s.profileId),
+    )
 
     for (const id of connectedNow) {
       if (!lastConnected.has(id)) {
@@ -347,7 +356,7 @@ function wireVpnEvents(): void {
       }
     }
     for (const id of lastConnected) {
-      if (!connectedNow.has(id)) {
+      if (!connectedNow.has(id) && !transitional.has(id)) {
         const session = state.sessions[id]
         notify(
           t('notify.disconnectedTitle'),
@@ -355,7 +364,10 @@ function wireVpnEvents(): void {
         )
       }
     }
-    lastConnected = connectedNow
+    lastConnected = new Set([
+      ...connectedNow,
+      ...[...lastConnected].filter((id) => transitional.has(id)),
+    ])
   })
 
   vpn.on('log', (line: string) => {

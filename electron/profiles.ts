@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { CONFIG_DIR, parseVpnConfContent, type VpnProfile } from './vpn'
 import { secureDirectory } from './nativeVpn'
-import { confEntries, profileHealthCheck } from './openconnect'
+import { confEntries, profileHealthCheck, profileLegacyTunnel, profileNoDtls } from './openconnect'
 
 export interface VpnProfileDraft {
   id: string
@@ -19,6 +19,8 @@ export interface VpnProfileDraft {
   persistent: number
   healthHost?: string
   healthPort?: number
+  noDtls?: boolean
+  legacyTunnel?: boolean
   /** Preserve imported options that the visual editor does not expose. */
   extraOptions?: [string, string][]
 }
@@ -93,6 +95,8 @@ export function parseVpnDraft(
   return {
     id,
     ...profileHealthCheck(raw),
+    noDtls: profileNoDtls(raw),
+    legacyTunnel: profileLegacyTunnel(raw),
     host: host.trim(),
     port: Number.parseInt(map.get('port') ?? '443', 10) || 443,
     username: map.get('username') ?? map.get('user') ?? '',
@@ -156,6 +160,8 @@ export function serializeVpnDraft(draft: VpnProfileDraft): string {
     profileHealthCheck(metadata)
     lines.push('', metadata)
   }
+  if (draft.noDtls) lines.push('', '# my-vpns-no-dtls = 1')
+  if (draft.legacyTunnel) lines.push('', '# my-vpns-legacy-tunnel = 1')
 
   lines.push('')
   return lines.join('\n')

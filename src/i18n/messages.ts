@@ -78,6 +78,10 @@ export type MessageKey =
   | 'form.healthHost'
   | 'form.healthPort'
   | 'form.healthHint'
+  | 'form.noDtls'
+  | 'form.noDtlsHint'
+  | 'form.legacyTunnel'
+  | 'form.legacyTunnelHint'
   | 'form.setDns'
   | 'form.setRoutes'
   | 'form.save'
@@ -180,6 +184,10 @@ const en: Dict = {
   'form.healthHost': 'Internal service IPv4',
   'form.healthPort': 'Service TCP port',
   'form.healthHint': 'Optional · Windows validates this service through the VPN before showing connected and while the tunnel is active.',
+  'form.noDtls': 'Disable DTLS',
+  'form.noDtlsHint': 'Use for FortiGate gateways that reject the DTLS hello; stays on HTTPS like openfortivpn.',
+  'form.legacyTunnel': 'Legacy FortiGate tunnel',
+  'form.legacyTunnelHint': 'Use when OpenConnect reaches the tunnel but the gateway immediately closes it; matches openfortivpn’s TLS hand-off.',
   'form.setDns': 'set-dns',
   'form.setRoutes': 'set-routes',
   'form.save': 'Save profile',
@@ -281,6 +289,10 @@ const ptBR: Dict = {
   'form.healthHost': 'IPv4 do serviço interno',
   'form.healthPort': 'Porta TCP do serviço',
   'form.healthHint': 'Opcional · no Windows, valida o serviço pela VPN antes de mostrar conectada e enquanto o túnel estiver ativo.',
+  'form.noDtls': 'Desativar DTLS',
+  'form.noDtlsHint': 'Use em gateways FortiGate que rejeitam o hello DTLS; mantém HTTPS como o openfortivpn.',
+  'form.legacyTunnel': 'Túnel FortiGate legado',
+  'form.legacyTunnelHint': 'Use quando o OpenConnect chega ao túnel, mas o gateway fecha logo em seguida; replica a troca TLS do openfortivpn.',
   'form.setDns': 'set-dns',
   'form.setRoutes': 'set-routes',
   'form.save': 'Salvar perfil',

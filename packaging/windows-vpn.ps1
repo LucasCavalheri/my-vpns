@@ -32,8 +32,11 @@ function Save-SplitDns {
 function Get-HealthDecision($health, [bool]$wasConnected, [int]$previousFailures, [double]$startupSeconds) {
     if ($health.ok) { return @{ phase='connected'; failures=0 } }
     if ($wasConnected -and $health.category -eq 'service') {
-        $failures = $previousFailures + 1
-        if ($failures -lt 3) { return @{ phase='verifying'; failures=$failures } }
+        # A service probe tells us about the application behind the VPN, not
+        # the tunnel itself. Keep the adapter/session connected and retry the
+        # probe without reauthenticating; topology and OpenConnect terminal
+        # events remain the authoritative disconnect signals.
+        return @{ phase='connected'; failures=[Math]::Min(3, $previousFailures + 1) }
     }
     if (!$wasConnected -and $startupSeconds -le 15) { return @{ phase='waiting'; failures=0 } }
     return @{ phase='disconnected'; failures=0 }
@@ -49,8 +52,8 @@ function Write-ClientLine([string]$line, [string]$file) {
         $script:splitGroups[-1].servers += $Matches[1]
         Save-SplitDns
     }
-    if ($line -match 'Invalid credentials|Authentication failed|User input required|Cookie was rejected by server') { $script:authFailed=$true }
-    if ($line -match 'Cookie was rejected by server|Dead peer detected|DTLS.*dead peer|Failed to reconnect|Session authentication expired|Server terminated|VPN session ended') {
+    if ($line -match 'Invalid credentials|Authentication failed|User input required|Cookie was rejected by server|Cookie is no longer valid') { $script:authFailed=$true }
+    if ($line -match 'Cookie was rejected by server|Cookie is no longer valid|Dead peer detected|DTLS.*dead peer|Failed to reconnect|Session authentication expired|Server terminated|VPN session ended') {
         $script:terminal=$true
         $script:connected=$false
         Write-Status 'disconnected' $line
@@ -81,10 +84,14 @@ try {
             if ([IO.Path]::GetFullPath($arg.Substring(9)) -ne [IO.Path]::GetFullPath($networkScript)) { throw 'Only the bundled VPN network script is allowed.' }
             continue
         }
-        if ($arg -notmatch '^(--protocol=fortinet|--passwd-on-stdin|--non-inter|--disable-ipv6|--reconnect-timeout=1|--force-dpd=10|--user=.+|--usergroup=.+|--servercert=pin-sha256:[A-Za-z0-9+/]+=*|--interface=MyVPNs-[A-Za-z0-9]+|--cafile=.+|--certificate=.+|--sslkey=.+|https://[^\s]+)$') { throw 'Unsupported client argument.' }
+        if ($arg -notmatch '^(--protocol=fortinet|--passwd-on-stdin|--non-inter|--disable-ipv6|--no-dtls|--reconnect-timeout=1|--force-dpd=10|--user=.+|--usergroup=.+|--servercert=pin-sha256:[A-Za-z0-9+/]+=*|--interface=MyVPNs-[A-Za-z0-9]+|--cafile=.+|--certificate=.+|--sslkey=.+|https://[^\s]+)$') { throw 'Unsupported client argument.' }
         $validatedArgs += [string]$arg
     }
     $validatedArgs = @("--script=$networkScript") + $validatedArgs
+    # Patched OpenConnect builds use this opt-in to reproduce openfortivpn's
+    # legacy FortiGate TLS hand-off for profiles that need it. Official builds
+    # simply ignore the variable and keep their normal request sequence.
+    $env:MYVPNS_FORTINET_LEGACY = if ($job.legacyTunnel) { '1' } else { '0' }
     if (Test-Path -LiteralPath (Join-Path $SessionDir 'stop')) { $result = 0; return }
     # This supervisor has its own hidden elevated console. Ctrl+C is delivered
     # to OpenConnect, whose handler logs out and calls the disconnect script.
@@ -210,12 +217,10 @@ public static class VpnConsole {
                     $serviceFailures = $decision.failures
                     if ($decision.phase -eq 'connected') {
                         Write-Status 'connected'
+                        if ($decision.failures -gt 0) {
+                            [IO.File]::AppendAllText($errFile, "WARNING: VPN service check $($decision.failures)/3 failed; keeping the healthy tunnel connected and retrying.`n", $utf8)
+                        }
                         if (!$connected) { [IO.File]::AppendAllText($outFile, "MYVPNS_TUNNEL_UP`n", $utf8); $connected=$true }
-                    } elseif ($decision.phase -eq 'verifying') {
-                        # A single lost SYN must not tear down a healthy VPN.
-                        # Do not show connected while the service is uncertain.
-                        Write-Status 'connecting' "Verifying internal service ($serviceFailures/3): $($health.message)"
-                        [IO.File]::AppendAllText($errFile, "WARNING: VPN service check $serviceFailures/3 failed; rechecking without reauthenticating.`n", $utf8)
                     } elseif ($decision.phase -eq 'disconnected') {
                         Log-Error $health.message
                         $terminal=$true

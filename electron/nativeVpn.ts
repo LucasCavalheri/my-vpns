@@ -19,7 +19,7 @@ export function encodedPowerShell(script: string): string[] {
 
 export function preventsReconnect(line: string, pinned = false): boolean {
   if (pinned && /^Server certificate verify failed: signer not found$/i.test(line)) return false
-  return /invalid credentials|authentication failed|could not authenticate|user input required|cookie was rejected|reconnect-after-drop is not allowed|certificate.*(failed|mismatch)|certificate does not match/i.test(line)
+  return /invalid credentials|authentication failed|could not authenticate|user input required|cookie (?:was rejected|is no longer valid)|reconnect-after-drop is not allowed|certificate.*(failed|mismatch)|certificate does not match/i.test(line)
 }
 
 export function validatedNativeStatus(raw: string, now = Date.now()): { phase: 'connected' | 'disconnected' | 'connecting'; message: string } {

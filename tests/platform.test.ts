@@ -41,6 +41,24 @@ describe('openfortivpn .conf to OpenConnect', () => {
     expect(plan).toMatchObject({ setDns: false, setRoutes: true, persistent: 15, trustedCerts: ['a'.repeat(64)] })
   })
 
+  it('supports a per-profile HTTPS-only mode for FortiGate gateways that reject DTLS', () => {
+    const raw = 'host=vpn.example\n# my-vpns-no-dtls = 1\n'
+    const plan = buildOpenConnectPlan(raw)
+    expect(plan.noDtls).toBe(true)
+    expect(plan.args).toContain('--no-dtls')
+    const preserved = serializeVpnDraft({ ...parseVpnDraft(raw, 'tecsul.conf')!, host: 'vpn.example' })
+    expect(preserved).toContain('# my-vpns-no-dtls = 1')
+    expect(buildOpenConnectPlan('host=vpn.example').args).not.toContain('--no-dtls')
+  })
+
+  it('preserves the legacy openfortivpn TLS hand-off marker', () => {
+    const raw = 'host=vpn.example\n# my-vpns-legacy-tunnel = 1\n'
+    expect(buildOpenConnectPlan(raw).legacyTunnel).toBe(true)
+    const preserved = serializeVpnDraft({ ...parseVpnDraft(raw, 'tecsul.conf')!, host: 'vpn.example' })
+    expect(preserved).toContain('# my-vpns-legacy-tunnel = 1')
+    expect(buildOpenConnectPlan('host=vpn.example').legacyTunnel).toBe(false)
+  })
+
   it('retains multiple complete pins and defaults to CA validation when no pin is given', () => {
     const plan = buildOpenConnectPlan(`host=vpn.example\ntrusted-cert=${'a'.repeat(64)}\ntrusted-cert=${'b'.repeat(64)}`)
     expect(plan.trustedCerts).toHaveLength(2)

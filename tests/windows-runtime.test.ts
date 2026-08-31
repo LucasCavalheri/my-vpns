@@ -52,6 +52,11 @@ describe.skipIf(!available)('real Windows OpenConnect supervisor (localhost only
     }
   }, 40000)
 
+  it('allows the explicit HTTPS-only profile option through the elevated argument policy', async () => {
+    const script = fs.readFileSync(path.resolve('packaging/windows-vpn.ps1'), 'utf8')
+    expect(script).toContain('--no-dtls')
+  })
+
   it('transmits an imported .conf login over TLS, preserves realm and special characters, and reports auth failure', async () => {
     const cert = fs.readFileSync(path.join(import.meta.dirname, 'fixtures/localhost-cert.pem'))
     const key = fs.readFileSync(path.join(import.meta.dirname, 'fixtures/localhost-key.pem'))

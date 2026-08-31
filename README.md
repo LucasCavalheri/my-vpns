@@ -42,7 +42,7 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 
 ### From GitHub Releases (recommended)
 
-Starting with **1.1.0**, [GitHub Releases](https://github.com/LucasCavalheri/my-vpns/releases/latest) include `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Use **1.1.2 or newer on Windows** for the Wintun MTU, tunnel-state and service-check fixes. Older releases before 1.1.0 are Linux-only. See the native validation notes below. Pre-releases remain available separately and do not update the stable APT repository.
+Starting with **1.1.0**, [GitHub Releases](https://github.com/LucasCavalheri/my-vpns/releases/latest) include `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Use **1.1.3 or newer on Windows** for the Wintun MTU, tunnel-state, service-check, HTTPS-only DTLS compatibility and startup mutex fixes. The optional legacy FortiGate hand-off is preserved for custom patched OpenConnect builds; the standard installer uses the official client. Older releases before 1.1.0 are Linux-only. See the native validation notes below. Pre-releases remain available separately and do not update the stable APT repository.
 
 #### macOS
 
