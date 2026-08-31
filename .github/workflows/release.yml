@@ -108,6 +108,8 @@ jobs:
           FLAGS=()
           if [[ "$TAG" == *-* ]]; then
             FLAGS+=(--prerelease --latest=false)
+          else
+            FLAGS+=(--prerelease=false --latest)
           fi
           cat > release-notes.md <<'EOF'
           ## Packages
@@ -120,7 +122,7 @@ jobs:
           All platforms import openfortivpn `.conf` profiles. See the README for
           Windows option compatibility and signing / notarization notes.
 
-          ### New platform preview
+          ### New platforms: validation limits
 
           Windows and macOS support is new. Automated checks cover profile
           translation, local TLS/authentication and network cleanup logic;
