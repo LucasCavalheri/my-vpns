@@ -180,7 +180,14 @@ function createWindow(): void {
 
 function notify(title: string, body: string): void {
   if (!Notification.isSupported()) return
-  new Notification({ title, body, silent: false }).show()
+  new Notification({ title, body, silent: false, ...notificationIcon() }).show()
+}
+
+/** Without an explicit icon the toast falls back to the shell's default,
+ * which is not the application mark outside a fully registered install. */
+function notificationIcon(): { icon?: string } {
+  const icon = iconPath()
+  return icon ? { icon } : {}
 }
 
 function broadcastUpdate(info: UpdateInfo): void {
@@ -224,6 +231,7 @@ async function performUpdateCheck(manual: boolean): Promise<UpdateCheckResult> {
             current: info.current,
           }),
           silent: false,
+          ...notificationIcon(),
         })
         notification.on('click', () => {
           mainWindow?.show()

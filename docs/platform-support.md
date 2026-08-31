@@ -65,6 +65,8 @@ Supervisors observe a heartbeat. Closing the window keeps the app in the tray; q
 
 ## Distribution
 
+`public/icon.svg` is the single source for the application mark. `npm run build:icons` rasterizes it into `build/icon.png` (the master electron-builder converts to `.ico`/`.icns`) and `public/icon.png`; run it after editing the SVG. Windows takes the taskbar and toast-notification icons from the installed executable, so an icon change only becomes visible after reinstalling.
+
 Run `npm run build:win` on Windows for the NSIS installer. Run `npm run build:mac` on macOS for both CPU architectures. `npm run build` packages for the current host. Linux's dedicated `build:deb` and `build:rpm` scripts remain available.
 
 The release workflow builds native packages on Windows and macOS runners, then combines them with the Linux artifacts in the GitHub Release. Tags with a version suffix such as `v1.1.0-beta.1` create a pre-release without replacing the latest stable release or publishing to APT. Stable releases retain the existing signed APT repository publishing flow. The CI workflow tests all three operating systems on PRs and master pushes; tests that invoke Windows cmdlets run only on Windows.

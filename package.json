@@ -3,7 +3,7 @@
   "productName": "My VPNs",
   "desktopName": "my-vpns",
   "private": true,
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Gerenciador gráfico para conexões OpenFortiVPN",
   "author": {
     "name": "LucasCavalheri",
@@ -28,6 +28,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:bundle": "tsc -b && vite build",
+    "build:icons": "electron scripts/build-icons.cjs",
     "build:win": "npm run build:bundle && electron-builder --win nsis --x64 --publish never",
     "build:mac": "npm run build:bundle && electron-builder --mac dmg zip --arm64 --x64 --publish never"
   },

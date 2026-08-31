@@ -112,7 +112,18 @@ jobs:
             FLAGS+=(--prerelease=false --latest)
           fi
           cat > release-notes.md <<'EOF'
-          ## Windows tunnel reliability
+          ## Application icon and form focus
+
+          - Replace the placeholder application mark with the shield icon used in
+            the interface. Windows takes its taskbar and toast-notification icons
+            from the installed executable, so both now match the window.
+          - Give desktop notifications an explicit icon instead of the shell default.
+          - Restore a visible focus indicator on profile fields, buttons and toggles;
+            the previous ring was too faint to see over the dark surface.
+          - `public/icon.svg` is now the single source for the mark, rasterized by
+            `npm run build:icons`.
+
+          ## Earlier in 1.1.x
 
           - Apply and verify the MTU negotiated for each session before installing tunnel IP/routes.
           - Validate adapter, IP, routes and effective MTU before showing connected; optionally check an internal TCP service configured in the profile editor.
@@ -120,6 +131,7 @@ jobs:
           - Detect tunnel loss and stale supervisor status; stop retrying rejected cookies or sessions where the gateway forbids reconnect-after-drop.
           - Apply Fortinet split-DNS with scoped Windows NRPT policies and remove owned settings on disconnect.
           - Retain secure CA/fingerprint verification and distinguish an unknown-CA warning from a verified certificate pin.
+          - Install application updates from official releases only.
 
           ## Packages
 
