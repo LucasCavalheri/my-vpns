@@ -168,7 +168,7 @@ export async function downloadUpdateArtifact(
   artifact: UpdateArtifact,
   fetchImpl: typeof fetch = fetch,
 ): Promise<string> {
-  if (!/^https:\/\/github\.com\//i.test(artifact.url)) {
+  if (!/^https:\/\/github\.com\/LucasCavalheri\/my-vpns\/releases\/download\//i.test(artifact.url)) {
     throw new Error('Fonte de atualização não confiável')
   }
   if (path.basename(artifact.name) !== artifact.name || !/^[a-zA-Z0-9._-]+$/.test(artifact.name)) {
