@@ -2,39 +2,39 @@
 Hash: SHA256
 
 Architectures: amd64
-Date: Mon, 31 Aug 2026 20:25:46 +0000
+Date: Mon, 31 Aug 2026 20:45:13 +0000
 Description: My VPNs Debian packages
 Label: My VPNs
 Origin: My VPNs
 MD5Sum:
- 3fcb370d1d24b7b7ac44858b6854ea30             5376 Packages
- e2181b44f1195c05038fe1d7591d5042             1196 Packages.gz
- 2a5aac6d1b52b3d19c370392263b4d76              127 Release
+ 5b447b3f88f38d42eed159a9c87e0f67             6144 Packages
+ 0900a23a962e26e0b7c27df9f1e83101             1307 Packages.gz
+ 36e613015dbc228a9e99808390f2bd45              127 Release
 SHA1:
- b0116083f3affbe5fa963943be886c3174f5fa73             5376 Packages
- 389687bb2f0c6d3f633cc35cf9be1916a3a6b53c             1196 Packages.gz
- 8aa7340eb073a04b88a2b8dbf97e6576177526bd              127 Release
+ 121042776777810ced5bc4fccc2b5cb8a784b1ff             6144 Packages
+ 7a0ce1f59023901663c204961c764bfd7783819e             1307 Packages.gz
+ 35b4f014af1f020ce4799fcac7781b531daddd07              127 Release
 SHA256:
- 5fd7b68b75201c72834a5fab8319110d20bf4ae319e4affdd0358886229f1b0b             5376 Packages
- 1e6f1c8fbe889ad4dae9756cc4340b16ce0e3c4ad7bd4fa01e9246b1b0ac9314             1196 Packages.gz
- 6981dd652eab714c9f92910c83d338b48a4c80487197fed162bcf6db380b4ff3              127 Release
+ f8fa55424bdde4a9b9310987e566bd9645c1c71470996162fef25864e6025781             6144 Packages
+ 86884ea4ad59bde7ac7649feba166b94ab8d2b71ae2d5c2dd0753a63321efa02             1307 Packages.gz
+ 0476146492bab21c15f190b4880f6c22bdb0fd460cacedfa56d7389cf4c9c4ff              127 Release
 SHA512:
- 460cdf478f8eb8dc64e40811f309245929ff2d2014a1d35fa44715afccf4b7f0c8e50abd96739e882f42d41b3f9822589c379b02c8ab34296c5725eb0a244c8a             5376 Packages
- ff7af5a39d4f99801fe796cb89679c61707ea1725a5cd2d62f48d8d0ae7d07aa9391a06966735504199360a56f49f589d385d40602247bb34fe4aedb01da1664             1196 Packages.gz
- 7044fb9cce9e15b905ee29d1ac2c6f02f108161202654d440c96ef4418a4730568d89ca0cb0dc370a8b0c70879e5f6dd7f395e4f54629c2c12c1b98d1c10c996              127 Release
+ f516a6ae3e56ef3f21224b70243f9d6547faff29eff79a40665f2f07c36461855256e8848bcda916e8599eaa726b7640f6ae186ee823a21f76d89ec3cc5ef699             6144 Packages
+ d40bf2b9716cce047866493120a4bdc743a519302961201a63887094628eded01b982931055ed93b909abe5159c9f821c5ca3e90c3a3e7a0992505ed80f9c0da             1307 Packages.gz
+ f0f27ceac45ab1bd14b37b571df51c7ba77192bccefd8b07abf9648bf00b523dae4178a5504d246f94981d9cfefe8b3c0d84fd8527b057eec8f65866aac717eb              127 Release
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEqfE3vudLYjExBxNY+w7B1aASYvAFAmqV40oACgkQ+w7B1aAS
-YvByEBAA0t2B4kzQ5l2YGiN0LAE2igQ/xt00PpF+8FWe0gyqkfdP/+afnCpnas3N
-vqYnf3IEgApxbHntJesembtmzqEQb/Re0pvOx9/pcTO1XRybZUwx1ZbuEsg8m1n+
-+2dQUVxzlduLydBh1XWf0okwTPF4d5aijWcGtsi89Udgq/g5ArN0DQNY9PemYWpT
-bpFOccqsxbZHjudFkQOl2xndQURNrSqUMoGteBA4mewIGeeRmldyV8goVzjjxWcV
-yeHMLt3bjWm4tosaQizBDVDNb+wQnkGebdR1Y8xMEVZYsPecb5dVCpPr6ZKP3YjO
-RAbm4N6QenxNjpypJwxQE21iKPpczfLfuKrkYnxLidZdLsul1ShlCMnssfqaYw6W
-s5EoVXB+XTw6qELQ2Cf9RtCWR5SolxM5IURAmByNCn5FrqAo9NJxpyjXC4Jz3M/S
-EZnTA2Lbd+yOqCc2YtKuEle1VzvpoAnX+xUOQQmoikMhI8oIEohWMFeQDd8eEm2z
-NsN8x4HmZS98XEkrFwlXsJJff4+cu3JE8NKPOukOtrAclj0yerQl/hJTV+Ud4E3t
-w8WM1X5IlwBrOMJRY5QoZH4vxjVG4s6jolifE5ixrIS4rmoPzu9DeAMy2wXpWHJa
-AKTXD03mgIqjbK0NhNu7ZY2CVR8xgo6sHPPZrldujyxGl1d9+iI=
-=Migy
+iQIzBAEBCAAdFiEEqfE3vudLYjExBxNY+w7B1aASYvAFAmqV59kACgkQ+w7B1aAS
+YvCXVBAApjD9Vz+WHS47v2OCBeDkKpxwumOW/1zlm5Qe55XrxQipB6AEp+1Hefgo
+Tu6PJeRDGEmla7chknIa5d9bF2CdyjG87HrCQqw456znZd6+zomvs5jPjNbxXGyn
+danrUEr+iOjzIigcks+E5Fpy9HyHXpp0MraIy216s6J/FD4fa0/FYdgkvT1US4dk
+JREu6tDIRn5qWNd4Z3J5ADL+2sR4Qf1l4l5FlafVx+9iydnQVSdaEL3lBchs8TYH
+VGQKCbTr52MyL9HEgSEyezszU9VIamZ5te+Q65r75xxKNjnaFJxdB65yXkhXZmI3
+GAg3Di51lPCtY8m34sep/s0nPVAjd99cUvygHMa5VyVjdKJcvHbLLG69ldf1lM2x
+oyy/Qh1In/TGwCEHc3XNsejsaG1uxhVFsJorU1wZO8A6sHv49xxpQxMWrrx3w+S/
+i4xFCL/Wmj8gLG2byFNFfFfQtukjMhmT9ai4yD9Nj//bkoJ4RIpEv2EB/qINfNQg
+UEFWgJM+7G3JFGBbCt+Vb7gDyuHCc7jX61SKa1AFxs/3Sbo6gJLZsqKqWJlWfYd/
+Z1o7LeSzAzhe3MibfZT1q3fx7uRuXYDOa7vSC9OpnfDz3YEH9Fn7yWwvwBVpWmfa
+X4Qha63yycNQCnJNu/241FiocU28UVukP7C87kaowVUku4VgClw=
+=eFyH
 -----END PGP SIGNATURE-----
