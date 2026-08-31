@@ -2,39 +2,39 @@
 Hash: SHA256
 
 Architectures: amd64
-Date: Mon, 31 Aug 2026 22:00:38 +0000
+Date: Mon, 31 Aug 2026 22:24:04 +0000
 Description: My VPNs Debian packages
 Label: My VPNs
 Origin: My VPNs
 MD5Sum:
- b96541f9699acace38af406ab2be8771             7680 Packages
- 4e16db1f10ded7d1d8632f98cc2101fe             1522 Packages.gz
- 089d0afe0f243e83f591819bf942a8fe              127 Release
+ 50252d669e4a0187b89f6146182f4d63             8448 Packages
+ aa400da88a9f66d71ce6563861e73255             1629 Packages.gz
+ d83487c091aa5722a9aae66dff73a482              127 Release
 SHA1:
- 22937fced48831483805aada79e5d60f1a409ad8             7680 Packages
- aaaa36be10d321d94141d7e37748a037834ef7ca             1522 Packages.gz
- ef62a627856ceb1b357d85a69bcb394a64aa986f              127 Release
+ 563945a30ed34df44a1e9d65c65b67fa03f2f982             8448 Packages
+ 44538627e6dafba6afc9a4112c984b13ef1e49cc             1629 Packages.gz
+ 038cae7955a6a43228ffe17a8e09526a201fd40d              127 Release
 SHA256:
- a13492ee3b217eda19a0a8496852d7be3b10369da60698c30d9c57f4eb16f66a             7680 Packages
- 09b194dcbeae0e27b76ba1ceff71ecd3cf55eef249b6c848d1a45947899c7e19             1522 Packages.gz
- 5996fe710ebf5c0e2cfe2343271ad4167f01d796aa056acd68fa240142d56baa              127 Release
+ ea06cc6757f7cd526cca4d6b2476a554701fdbf9d7b99ede15ef3cec7fb37201             8448 Packages
+ 86fa18a10e77008f51e51e5b00545c3c299a0dd81a1d434103259a9345833e21             1629 Packages.gz
+ f7eaeb76c40a439471c1ac311f97a24cf192599f2c649b622fdb4bb13852627c              127 Release
 SHA512:
- 35f814708962f0834a98ce09716b679d6d9f311416e12ccbc8e9b50e82debefd8de7d400b67c8b44906f42507904bea933e574469a016d59f6fdc39afc000259             7680 Packages
- fe805d0aaed21236ab75cae9ac3d143a08ed86832c523659f940b247cce7d3aa0c5d5f9185a92b65ba82edac7c15ff2eb23fb38cc8479ae04e650d8e5e4680ea             1522 Packages.gz
- 78cb6b1618e01e5b769b726468d32c86c8cb50722a37de850b81aefd93747c0aab43f7b7d92c5320ef87bd13bedfc09574b2303745dc15dac15b2346ed7dfdcf              127 Release
+ 80f5c081c6c890e4531848ec64222502bb0f1dfde6e235ca58539665714a498fe7f8c03c116a09b93aa11c23380b60af409b6327f35ad987aca74ca81b2cd1aa             8448 Packages
+ c186d8d968afad23402de4ce5239f1102b76cff24dbefb9fad39fb48543eae3ad45c8793d6d8be46fec65892f9dfa0c2cdaec668f308d53fd3b68eee0584ddc4             1629 Packages.gz
+ 1c481f97aeff7c7ef7e94df52e63299c6d64b9d8e4f414c7aad9344477f69d750e8060100314c85ac538d9f7937fdfe9fe515ee93aa400919f1d42d22b331caa              127 Release
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCAAdFiEEqfE3vudLYjExBxNY+w7B1aASYvAFAmqV+YYACgkQ+w7B1aAS
-YvCtYRAAxjJR81hNpAykZbhjbvusgHswpBKPmAwAbJNz4bCFtLSsN4+cwv98wBty
-uBJ+6kjshAsLgnJhOaPyptIiCNyhhHeh9Ub24OR9miXFVZfngiFoxEa7usd7O/lB
-jF8lW7KIjydWxqYOy2YoH0hw2h9UfzhCqID6GTmMqUqxtuhukv6hCk0n20bAvqkR
-j6vEeOhAsTgiL+PPh6k6LgrBO9ILcgs9juSEP4EZlXd59IThsy93QlBBSXSizQ9i
-hXxKbGKEPiBOIo+y9+qSZbmIJDXZu+oWOcsxPcovfF57V8a3IhVbhNXZl/IIXOxq
-poki+mUr3SZLXn4rT32AODewJsE2nAeDAR7WAr8rbpXlPiElbiOgGLgXK0f9OCn4
-PqEN3Ei+l3tSlafbGtMI4XGuo0t1+HsTulapEusEP1Vs//7Gy+2DlSEOubvn7NUO
-bHZM3nANA6fPyw/4J8C7JmGtapsu62oxiix7jE4c/wgR1CmzGgi/fCrFpvoyhxBj
-2IeTomKQeRo3NLg9xdjbiNd1uu9xhPrL+uppa6/kIciePedGRnshRciQPOfq4/FN
-XsNOd1zmgyB6I+89BCb1QHjj8pbVRgR8HD1xpB0ZGx5PZNs/25/MNOUhFFphiY4x
-FwzpZ/rvFFhuXT7qMjUOwE4KmpcMhI7qCAfZCr3TPVfc6LazQc4=
-=81Nb
+iQIzBAEBCAAdFiEEqfE3vudLYjExBxNY+w7B1aASYvAFAmqV/wQACgkQ+w7B1aAS
+YvBRag/9GYzX0YRpdfdrebaIKA6RAP/g6872LVQpxbGd7WkvvDmQh5yDAfZOWk09
+tUHsVIus4XZnP2lPDIugoTdkh6xznjYaAIkKn09ZS8MXX+/Jyqg7MpVnPZsdG2E3
+ysFhqLsHc1ru8k1lQ8Ur3NlARFgX43L3X8rZz6h2yzE3kypMxgWSGC4V5e1yq2/t
+kz/cBR19Z2OGn2ZMLKdg8owSupLjfd2Up4GITlZn1IL6XQzI9X2Zss8jtLTUKmsQ
+8agm+yoXvXPB77gJ4M4e4I841JHlH9Wf2j0DSuQe3LPFeYTOwvqj9dQJNs6UTqJB
+mucIFlSnjHx3gJipAZWrbRWn6s5ASiwe5t+xnHmArGzMT5cINSJkuhbGn9kVTWzG
+0HWV0yMFtoK3pfEwdMBfei2UDSpbSgwwRw9/qVAXVqf29K5S/H3ZlR2np9x2s9Lz
+lgwbw2E5E/fIjMR+b+GbkACYITMq/F6QRRKTfzC/0Uog5I+Y+9tTbfAmb1GtHnKS
+xdgaC/LL49BhdHutMuT+ymwJGiyg3R7g6lz/RfGvp6rY5h+S9BCnlUvhulZV+oWO
+7w8pMHKOsS8/x+XYwio5LFnwbnjUBVc/9FZxXomuTlkXmxzvpIwmEVOZzz7cNsqf
+PP5sqea2ccnHiZNDgiSNo4M2sMf5jYZbazhxe35aWXnPy6qaYs0=
+=ewvs
 -----END PGP SIGNATURE-----
