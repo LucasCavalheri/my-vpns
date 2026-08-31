@@ -16,6 +16,7 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { VpnManager, summarizeVpnState, type VpnProfile, type VpnState } from './vpn'
+import { encodedPowerShell, powershellPath, psQuote } from './nativeVpn'
 import {
   detectDistro,
   getDependencyStatus,
@@ -299,6 +300,9 @@ function launchMacUpdater(archive: string): void {
     stdio: 'ignore',
     windowsHide: true,
   })
+  // A spawn failure is reported asynchronously; without a listener it becomes
+  // an uncaught exception that takes down the whole main process.
+  child.on('error', (error) => console.error('[my-vpns] update helper failed:', error))
   child.unref()
 }
 
@@ -355,8 +359,17 @@ async function installAppUpdate(info: UpdateInfo): Promise<{
     const file = await downloadUpdateArtifact(artifact)
 
     if (process.platform === 'win32') {
-      const child = spawn(file, [], { detached: true, stdio: 'ignore', windowsHide: false })
-      child.unref()
+      // The installer is per-machine, so its manifest requires administrator
+      // rights and CreateProcess refuses to start it (EACCES). ShellExecute
+      // with the runas verb raises the UAC prompt instead. A declined prompt
+      // must leave the running application in place rather than quitting it.
+      const result = await runUpdateProcess(powershellPath, encodedPowerShell(
+        `$ErrorActionPreference = 'Stop'; try { Start-Process -FilePath ${psQuote(file)} -Verb RunAs | Out-Null }`
+        + ` catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }`,
+      ))
+      if (result.code !== 0) {
+        return { status: 'error', message: result.output || t('update.elevationDeclined') }
+      }
       quitting = true
       app.quit()
       return { status: 'started' }

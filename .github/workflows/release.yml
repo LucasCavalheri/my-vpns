@@ -112,6 +112,20 @@ jobs:
             FLAGS+=(--prerelease=false --latest)
           fi
           cat > release-notes.md <<'EOF'
+          ## Installing updates on Windows
+
+          - Launch the downloaded installer through ShellExecute so Windows raises
+            the UAC prompt. The per-machine installer requires administrator
+            rights, which `CreateProcess` refuses outright — updating from inside
+            the application failed with `spawn ... EACCES`.
+          - Report a declined elevation prompt instead of quitting the running
+            application. The spawn failure arrived asynchronously and escaped the
+            surrounding error handling, crashing the main process.
+          - Attach the same error handling to the macOS update helper.
+
+          Upgrading **to** this version from 1.1.6 or earlier still needs the
+          installer to be run manually, because the fix lives in the update path.
+
           ## Application icon and form focus
 
           - Replace the placeholder application mark with the shield icon used in

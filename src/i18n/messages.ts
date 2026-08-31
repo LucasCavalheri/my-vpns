@@ -93,6 +93,7 @@ export type MessageKey =
   | 'update.install'
   | 'update.installing'
   | 'update.installFailed'
+  | 'update.elevationDeclined'
   | 'update.installTitle'
   | 'update.installMessage'
   | 'update.cancel'
@@ -206,6 +207,7 @@ const en: Dict = {
   'update.install': 'Download and install',
   'update.installing': 'Downloading update…',
   'update.installFailed': 'Could not install this update.',
+  'update.elevationDeclined': 'The installer needs administrator approval, which was not granted.',
   'update.installTitle': 'Install My VPNs update',
   'update.installMessage': 'Version {latest} will be downloaded and installed. Active VPN tunnels will be disconnected first.',
   'update.cancel': 'Cancel',
@@ -318,6 +320,7 @@ const ptBR: Dict = {
   'update.install': 'Baixar e instalar',
   'update.installing': 'Baixando atualização…',
   'update.installFailed': 'Não foi possível instalar esta atualização.',
+  'update.elevationDeclined': 'O instalador precisa de autorização de administrador, que não foi concedida.',
   'update.installTitle': 'Instalar atualização do My VPNs',
   'update.installMessage': 'A versão {latest} será baixada e instalada. As VPNs ativas serão desconectadas antes.',
   'update.cancel': 'Cancelar',
