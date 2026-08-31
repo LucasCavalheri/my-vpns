@@ -4,9 +4,13 @@ $stateFile = Join-Path $env:MYVPNS_SESSION_DIR 'network-state.json'
 $utf8 = New-Object Text.UTF8Encoding($false)
 function Get-OtherRoutes {
     $root = Split-Path -Parent $env:MYVPNS_SESSION_DIR
+    # TEMP may use an 8.3 path (RUNNER~1, for example), while enumeration
+    # returns long paths. Compare canonical directory names within this root
+    # so our own state cannot be mistaken for another active session.
+    $currentName = (Get-Item -LiteralPath $env:MYVPNS_SESSION_DIR).Name
     foreach ($dir in Get-ChildItem -LiteralPath $root -Directory -Filter 'session-*') {
         $file = Join-Path $dir.FullName 'network-state.json'
-        if ($file -ne $stateFile -and (Test-Path -LiteralPath $file)) {
+        if ($dir.Name -ne $currentName -and (Test-Path -LiteralPath $file)) {
             try { (Get-Content -LiteralPath $file -Raw -Encoding UTF8 | ConvertFrom-Json).routes } catch { }
         }
     }

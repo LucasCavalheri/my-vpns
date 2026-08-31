@@ -51,4 +51,12 @@ describe.skipIf(process.platform !== 'win32')('Windows networking helper with mo
     const result = await network(1, 1, '-Shared')
     expect(result.remaining.map(r => r.prefix)).toEqual(['203.0.113.5/32'])
   })
+
+  it('removes owned routes when Windows TEMP uses short 8.3 path aliases', async () => {
+    const result = await network(1, 1, '-ShortPath')
+    expect(result.connected).toContain('MYVPNS_TUNNEL_UP')
+    expect(result.operations.filter(op => op.action === 'route-remove')).toHaveLength(2)
+    expect(result.remaining).toEqual([])
+    expect(result.stateExists).toBe(false)
+  })
 })

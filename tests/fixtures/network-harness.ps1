@@ -1,5 +1,9 @@
-param([string]$SessionDir, [int]$Dns, [int]$Routes, [switch]$FailRoute, [switch]$Shared)
+param([string]$SessionDir, [int]$Dns, [int]$Routes, [switch]$FailRoute, [switch]$Shared, [switch]$ShortPath)
 $ErrorActionPreference = 'Stop'
+if ($ShortPath) {
+    $fso = New-Object -ComObject Scripting.FileSystemObject
+    $SessionDir = $fso.GetFolder($SessionDir).ShortPath
+}
 $global:testOperations = New-Object Collections.Generic.List[object]
 $global:testRoutes = @()
 $global:testIp = $null
