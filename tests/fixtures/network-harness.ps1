@@ -1,5 +1,5 @@
 param([string]$SessionDir, [int]$Dns, [int]$Routes, [switch]$FailRoute, [switch]$Shared, [switch]$ShortPath,
-    [int]$Mtu=1351, [switch]$RejectMtu, [switch]$SplitDns, [switch]$DnsConflict, [string]$Drop)
+    [int]$Mtu=1351, [switch]$RejectMtu, [switch]$SplitDns, [switch]$DnsConflict, [switch]$ServiceFailure, [string]$Drop)
 $ErrorActionPreference = 'Stop'
 if ($ShortPath) {
     $fso = New-Object -ComObject Scripting.FileSystemObject
@@ -38,7 +38,11 @@ function Remove-DnsClientNrptRule {
         $global:testOperations.Add(@{action='nrpt-remove'})
     }
 }
-function Find-NetRoute { param($RemoteIPAddress) @{ InterfaceIndex=7; NextHop='192.0.2.1' } }
+function Find-NetRoute {
+    param($RemoteIPAddress)
+    if ($ServiceFailure -and $RemoteIPAddress -eq '198.18.0.2') { @{InterfaceIndex=42;NextHop='0.0.0.0'} }
+    else { @{ InterfaceIndex=7; NextHop='192.0.2.1' } }
+}
 function Get-NetRoute {
     param($DestinationPrefix,$InterfaceIndex,$NextHop,$ErrorAction)
     $global:testRoutes | Where-Object { $_.prefix -eq $DestinationPrefix -and $_.index -eq $InterfaceIndex -and $_.nextHop -eq $NextHop }
@@ -81,6 +85,12 @@ $env:INTERNAL_IP4_ADDRESS='198.18.0.2'
 $env:INTERNAL_IP4_MTU=[string]$Mtu
 $env:MYVPNS_HEALTH_HOST=''
 $env:MYVPNS_HEALTH_PORT=''
+if ($ServiceFailure) {
+    # No OS address was created by these mocks. Binding a probe to that fake
+    # VPN IP fails locally, before any SYN can leave the host.
+    $env:MYVPNS_HEALTH_HOST='198.18.0.2'
+    $env:MYVPNS_HEALTH_PORT='30015'
+}
 $env:CISCO_SPLIT_DNS=''
 $env:INTERNAL_IP4_DNS='198.18.0.53 198.18.0.54'
 $env:CISCO_DEF_DOMAIN='corp.test'

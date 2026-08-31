@@ -16,7 +16,7 @@ async function network(dns: number, routes: number, ...flags: string[]) {
       path.resolve('tests/fixtures/network-harness.ps1'), '-SessionDir', dir, '-Dns', String(dns), '-Routes', String(routes), ...flags],
     { windowsHide: true, timeout: 20000 })
     return JSON.parse(stdout.trim()) as { connected: string[]; operations: { action: string; servers?: string[]; prefix?: string; value?: number; namespaces?: string[] }[];
-      ready: { ok: boolean; message: string }; health: { ok: boolean }; brokenHealth: { ok: boolean; message: string }; effectiveMtu: number; remainingNrpt: {Name: string}[];
+      ready: { ok: boolean; message: string }; health: { ok: boolean; category?: string }; brokenHealth: { ok: boolean; message: string }; effectiveMtu: number; remainingNrpt: {Name: string}[];
       remaining: { prefix: string }[]; duplicateCleanupChanges: number; stateExists: boolean }
   } finally {
     for (const folder of fs.readdirSync(root)) {
@@ -29,6 +29,22 @@ async function network(dns: number, routes: number, ...flags: string[]) {
 }
 
 describe.skipIf(process.platform !== 'win32')('Windows networking helper with mocked OS cmdlets', { timeout: 25000 }, () => {
+  it('rechecks transient service failures without false green status, but immediately stops on topology loss', async () => {
+    const { stdout } = await execFileAsync(powershellPath, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', path.resolve('tests/fixtures/health-policy-harness.ps1')], { windowsHide: true, timeout: 20000 })
+    const result = JSON.parse(stdout.trim())
+    expect(result.sequence.map((d: { phase: string }) => d.phase)).toEqual(['verifying', 'verifying', 'connected', 'verifying', 'verifying', 'disconnected'])
+    expect(result.sequence.map((d: { failures: number }) => d.failures)).toEqual([1, 2, 0, 1, 2, 0])
+    expect(result.networkLoss.phase).toBe('disconnected')
+    expect(result.starting.phase).toBe('waiting')
+    expect(result.startupExpired.phase).toBe('disconnected')
+  })
+
+  it('distinguishes a failed service probe from invalid adapter/IP/routes/MTU', async () => {
+    const result = await network(1, 1, '-ServiceFailure')
+    expect(result.health).toMatchObject({ ok: false, category: 'service' })
+    expect(result.ready.ok).toBe(true)
+    expect(result.stateExists).toBe(false)
+  })
   it.each([[0, 0], [0, 1], [1, 0], [1, 1]])('honors set-dns=%i and set-routes=%i and rolls back only its own changes', async (dns, routes) => {
     const result = await network(dns, routes)
     expect(result.connected).toContain('MYVPNS_NETWORK_READY')

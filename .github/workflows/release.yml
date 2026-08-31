@@ -116,6 +116,7 @@ jobs:
 
           - Apply and verify the MTU negotiated for each session before installing tunnel IP/routes.
           - Validate adapter, IP, routes and effective MTU before showing connected; optionally check an internal TCP service configured in the profile editor.
+          - Recheck isolated service-probe failures without reauthenticating; show verification in progress and disconnect after three consecutive failures. Topology loss remains immediate.
           - Detect tunnel loss and stale supervisor status; stop retrying rejected cookies or sessions where the gateway forbids reconnect-after-drop.
           - Apply Fortinet split-DNS with scoped Windows NRPT policies and remove owned settings on disconnect.
           - Retain secure CA/fingerprint verification and distinguish an unknown-CA warning from a verified certificate pin.

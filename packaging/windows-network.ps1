@@ -1,4 +1,4 @@
-param([string]$Action = $env:reason, [string]$SessionDir = $env:MYVPNS_SESSION_DIR)
+param([string]$Action = $env:reason, [string]$SessionDir = $env:MYVPNS_SESSION_DIR, [bool]$ProbeService = $true)
 # OpenConnect vpnc-script environment. Only manage settings owned by this tunnel.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -45,6 +45,9 @@ function Assert-Network($saved, [bool]$probe = $false) {
                 if (!$pending.AsyncWaitHandle.WaitOne(3000)) { throw 'VPN service reachability check timed out.' }
                 $tcp.EndConnect($pending)
             } finally { $pending.AsyncWaitHandle.Close() }
+        } catch {
+            $_.Exception.Data['healthCategory'] = 'service'
+            throw
         } finally { $tcp.Close() }
     }
 }
@@ -156,7 +159,7 @@ try {
     if ($Action -in @('check', 'ready')) {
         $script:state = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($Action -eq 'ready') { Configure-Dns }
-        else { Assert-Network $script:state $true }
+        else { Assert-Network $script:state $ProbeService }
         return [pscustomobject]@{ ok=$true; message=''; mtu=$script:state.mtu; splitDnsRules=@($script:state.nrpt).Count }
     }
     if ($Action -notin @('connect', 'reconnect')) { return }
@@ -224,7 +227,7 @@ try {
     # in the supervisor afterwards, once the client's packet loop is running.
     Write-Output 'MYVPNS_NETWORK_READY'
 } catch {
-    if ($Action -in @('check', 'ready')) { return [pscustomobject]@{ ok=$false; message=$_.Exception.Message } }
+    if ($Action -in @('check', 'ready')) { return [pscustomobject]@{ ok=$false; message=$_.Exception.Message; category= $(if ($_.Exception.Data['healthCategory']) { 'service' } else { 'network' }) } }
     [Console]::Error.WriteLine("ERROR: VPN network configuration: " + $_.Exception.Message)
     [IO.File]::WriteAllText((Join-Path $env:MYVPNS_SESSION_DIR 'stop'), '', $utf8)
     if ($locked) { try { Restore-Network } catch { [Console]::Error.WriteLine("ERROR: VPN cleanup: " + $_.Exception.Message) } }

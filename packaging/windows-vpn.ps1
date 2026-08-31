@@ -16,6 +16,8 @@ $authFailed = $false
 $terminal = $false
 $dnsReady = $false
 $lastHealthCheck = [DateTime]::MinValue
+$lastServiceCheck = [DateTime]::MinValue
+$serviceFailures = 0
 $readyAt = $null
 $networkScriptPath = Join-Path $PSScriptRoot 'windows-network.ps1'
 function Log-Error([string]$text) { [IO.File]::AppendAllText($errFile, "ERROR: $text`n", $utf8) }
@@ -26,6 +28,15 @@ function Write-Status([string]$phase, [string]$message = '') {
 function Save-SplitDns {
     $file = Join-Path $SessionDir 'split-dns.json'
     [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject @($script:splitGroups) -Depth 5 -Compress), $utf8)
+}
+function Get-HealthDecision($health, [bool]$wasConnected, [int]$previousFailures, [double]$startupSeconds) {
+    if ($health.ok) { return @{ phase='connected'; failures=0 } }
+    if ($wasConnected -and $health.category -eq 'service') {
+        $failures = $previousFailures + 1
+        if ($failures -lt 3) { return @{ phase='verifying'; failures=$failures } }
+    }
+    if (!$wasConnected -and $startupSeconds -le 15) { return @{ phase='waiting'; failures=0 } }
+    return @{ phase='disconnected'; failures=0 }
 }
 function Write-ClientLine([string]$line, [string]$file) {
     if ($line -match '^(Microsoft \(R\) Windows Script Host|Copyright \(C\) Microsoft Corporation)') { return }
@@ -190,11 +201,22 @@ public static class VpnConsole {
                     } else { Log-Error $dnsResult.message; $terminal=$true }
                 }
                 if ($dnsReady) {
-                    $health = & $networkScriptPath -Action check -SessionDir $SessionDir
-                    if ($health.ok) {
+                    # Keep topology checks frequent, but avoid opening a new
+                    # unauthenticated service connection on every status tick.
+                    $probeService = !$connected -or $serviceFailures -gt 0 -or (([DateTime]::UtcNow - $lastServiceCheck).TotalSeconds -ge 15)
+                    $health = & $networkScriptPath -Action check -SessionDir $SessionDir -ProbeService $probeService
+                    if ($probeService) { $lastServiceCheck = [DateTime]::UtcNow }
+                    $decision = Get-HealthDecision $health $connected $serviceFailures (([DateTime]::UtcNow - $readyAt).TotalSeconds)
+                    $serviceFailures = $decision.failures
+                    if ($decision.phase -eq 'connected') {
                         Write-Status 'connected'
                         if (!$connected) { [IO.File]::AppendAllText($outFile, "MYVPNS_TUNNEL_UP`n", $utf8); $connected=$true }
-                    } elseif ($connected -or (([DateTime]::UtcNow - $readyAt).TotalSeconds -gt 15)) {
+                    } elseif ($decision.phase -eq 'verifying') {
+                        # A single lost SYN must not tear down a healthy VPN.
+                        # Do not show connected while the service is uncertain.
+                        Write-Status 'connecting' "Verifying internal service ($serviceFailures/3): $($health.message)"
+                        [IO.File]::AppendAllText($errFile, "WARNING: VPN service check $serviceFailures/3 failed; rechecking without reauthenticating.`n", $utf8)
+                    } elseif ($decision.phase -eq 'disconnected') {
                         Log-Error $health.message
                         $terminal=$true
                         $connected=$false
