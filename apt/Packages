@@ -178,3 +178,23 @@ Description: Gerenciador gráfico OpenFortiVPN
 License: MIT
 Vendor: LucasCavalheri <LucasCavalheri@users.noreply.github.com>
 
+Package: my-vpns
+Version: 1.1.6
+Architecture: amd64
+Maintainer: LucasCavalheri <LucasCavalheri@users.noreply.github.com>
+Installed-Size: 346301
+Depends: pkexec | policykit-1, libgtk-3-0t64 | libgtk-3-0, libnotify4
+Recommends: openfortivpn
+Filename: ./my-vpns_1.1.6_amd64.deb
+Size: 100884904
+MD5sum: 5895943cf1f4b2a701b808dd7a8dd62e
+SHA1: 6d9782a9cb361a4e1d3e756215c533193aa54abe
+SHA256: a19c0bb23429e7f1878ba50d7b73e45fe8a2cc0163e0132077818aefbb2731f4
+Section: default
+Priority: optional
+Homepage: https://github.com/LucasCavalheri/my-vpns
+Description: Gerenciador gráfico OpenFortiVPN
+  Conecte e monitore VPNs OpenFortiVPN (FortiGate SSL) com interface gráfica, tray e notificações.
+License: MIT
+Vendor: LucasCavalheri <LucasCavalheri@users.noreply.github.com>
+

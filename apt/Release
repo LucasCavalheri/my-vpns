@@ -1,21 +1,21 @@
 Architectures: amd64
-Date: Mon, 31 Aug 2026 20:56:11 +0000
+Date: Mon, 31 Aug 2026 22:00:38 +0000
 Description: My VPNs Debian packages
 Label: My VPNs
 Origin: My VPNs
 MD5Sum:
- a5f8cc6d83954755e5b0a06bd40b39a1             6912 Packages
- 0224d7a1cb5cc8aa55928501f146596d             1412 Packages.gz
- 67427a30b0670f921a276509b1d53e6e              127 Release
+ b96541f9699acace38af406ab2be8771             7680 Packages
+ 4e16db1f10ded7d1d8632f98cc2101fe             1522 Packages.gz
+ 089d0afe0f243e83f591819bf942a8fe              127 Release
 SHA1:
- e6e14dc3b3857e9b0354292be71cb196dd177279             6912 Packages
- f0ee1ce6dbe9a971d5883b8c9404006fa299d33c             1412 Packages.gz
- 8fc882ce31fce6fa8891a6c76bc00784dcb0bce5              127 Release
+ 22937fced48831483805aada79e5d60f1a409ad8             7680 Packages
+ aaaa36be10d321d94141d7e37748a037834ef7ca             1522 Packages.gz
+ ef62a627856ceb1b357d85a69bcb394a64aa986f              127 Release
 SHA256:
- d0dc09e246c8f49106b7c8f3bf9985222529b1d7a140afbc6423688a5a75e046             6912 Packages
- a6c874fb3e85a8cbee2ec9f2ab1c700e1e08c3fc54a400884aa1944a743f02b4             1412 Packages.gz
- af2092e406264f81c7aa1e64be5c481e3290801884a2378c7fdaf2276487721f              127 Release
+ a13492ee3b217eda19a0a8496852d7be3b10369da60698c30d9c57f4eb16f66a             7680 Packages
+ 09b194dcbeae0e27b76ba1ceff71ecd3cf55eef249b6c848d1a45947899c7e19             1522 Packages.gz
+ 5996fe710ebf5c0e2cfe2343271ad4167f01d796aa056acd68fa240142d56baa              127 Release
 SHA512:
- 0d2ac6b1d4714c68817cd2d9b3921883af997adbe33ccf6b2d49e59ea3bf27c57f8530338516bdf2a1328c998cbebb1981a2be771c93b3ce22e8b8d0b226cbf4             6912 Packages
- 1e5c320e1c20a4de45f53509d3c528133306858f4a70160fcfe58f899494feba69a06a625c4695617910ebe92d09b005932a0e1f6d48efb97ed51f9697e5ce86             1412 Packages.gz
- 975b5338c2f0a90cb0d1f00d69b1942c8707ca2a6bd543339010d0f6c97cd0d9122275aab69b08b144d5fa604eee8e2db2aea2d3e65f45ce63bf8f729c66e587              127 Release
+ 35f814708962f0834a98ce09716b679d6d9f311416e12ccbc8e9b50e82debefd8de7d400b67c8b44906f42507904bea933e574469a016d59f6fdc39afc000259             7680 Packages
+ fe805d0aaed21236ab75cae9ac3d143a08ed86832c523659f940b247cce7d3aa0c5d5f9185a92b65ba82edac7c15ff2eb23fb38cc8479ae04e650d8e5e4680ea             1522 Packages.gz
+ 78cb6b1618e01e5b769b726468d32c86c8cb50722a37de850b81aefd93747c0aab43f7b7d92c5320ef87bd13bedfc09574b2303745dc15dac15b2346ed7dfdcf              127 Release
