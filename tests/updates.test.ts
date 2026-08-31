@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   checkForAppUpdate,
   compareVersions,
+  downloadUpdateArtifact,
   normalizeTag,
+  selectUpdateArtifact,
 } from '../electron/updates'
 import {
   BASE_RETRY_DELAY_MS,
@@ -57,6 +59,47 @@ describe('checkForAppUpdate', () => {
     })) as unknown as typeof fetch
 
     expect(await checkForAppUpdate('1.0.2', { fetchImpl })).toBeNull()
+  })
+
+  it('publishes and selects platform installers', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        tag_name: 'v1.0.3',
+        html_url: 'https://github.com/LucasCavalheri/my-vpns/releases/tag/v1.0.3',
+        assets: [
+          { name: 'My.VPNs-1.0.3-windows-x64-setup.exe', browser_download_url: 'https://github.com/LucasCavalheri/my-vpns/releases/download/v1.0.3/app.exe' },
+          { name: 'My.VPNs-1.0.3-mac-arm64.zip', browser_download_url: 'https://github.com/LucasCavalheri/my-vpns/releases/download/v1.0.3/app.zip' },
+          { name: 'my-vpns_1.0.3_amd64.deb', browser_download_url: 'https://github.com/LucasCavalheri/my-vpns/releases/download/v1.0.3/app.deb' },
+        ],
+      }),
+    })) as unknown as typeof fetch
+    const info = await checkForAppUpdate('1.0.2', { fetchImpl })
+    expect(info?.artifacts).toHaveLength(3)
+    expect(selectUpdateArtifact(info?.artifacts ?? [], 'win32', 'x64')?.kind).toBe('windows')
+    expect(selectUpdateArtifact(info?.artifacts ?? [], 'darwin', 'arm64')?.kind).toBe('macos')
+    expect(selectUpdateArtifact(info?.artifacts ?? [], 'linux', 'x64', 'apt')?.kind).toBe('deb')
+  })
+
+  it('downloads and verifies a sha256 digest', async () => {
+    const bytes = new TextEncoder().encode('installer')
+    const artifact = {
+      name: 'my-vpns-test.deb',
+      url: 'https://github.com/LucasCavalheri/my-vpns/releases/download/v1.0.3/app.deb',
+      kind: 'deb' as const,
+      digest: '9c0d294c05fc1d88d698034609bb81c0c69196327594e4c69d2915c80fd9850c',
+    }
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => bytes.buffer,
+    })) as unknown as typeof fetch
+    const downloaded = await downloadUpdateArtifact(artifact, fetchImpl)
+    expect(downloaded).toMatch(/my-vpns-test\.deb$/)
+
+    await expect(
+      downloadUpdateArtifact({ ...artifact, digest: '0'.repeat(64) }, fetchImpl),
+    ).rejects.toThrow('SHA-256')
   })
 })
 

@@ -103,7 +103,22 @@ export interface UpdateInfo {
   current: string
   latest: string
   url: string
+  artifacts?: UpdateArtifact[]
 }
+
+export type UpdateArtifactKind = 'windows' | 'macos' | 'deb' | 'rpm'
+
+export interface UpdateArtifact {
+  name: string
+  url: string
+  kind: UpdateArtifactKind
+  digest?: string
+}
+
+export type UpdateInstallResult =
+  | { status: 'started' }
+  | { status: 'unsupported'; message: string }
+  | { status: 'error'; message: string }
 
 export type UpdateCheckResult =
   | { status: 'up-to-date'; current: string }
@@ -140,6 +155,7 @@ export interface MyVpnsApi {
   checkForUpdate: () => Promise<UpdateCheckResult>
   dismissUpdate: (version: string) => Promise<{ ok: boolean }>
   openUpdateUrl: (url: string) => Promise<{ ok: boolean }>
+  installUpdate: (info: UpdateInfo) => Promise<UpdateInstallResult>
   setTheme: (theme: ThemePreference) => Promise<{ theme: ThemePreference }>
   onState: (cb: (state: VpnState) => void) => () => void
   onLog: (cb: (line: string) => void) => () => void

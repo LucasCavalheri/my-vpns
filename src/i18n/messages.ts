@@ -90,6 +90,13 @@ export type MessageKey =
   | 'update.available'
   | 'update.aptHint'
   | 'update.open'
+  | 'update.install'
+  | 'update.installing'
+  | 'update.installFailed'
+  | 'update.installTitle'
+  | 'update.installMessage'
+  | 'update.cancel'
+  | 'update.cancelled'
   | 'update.dismiss'
   | 'update.checkNow'
   | 'update.checking'
@@ -163,7 +170,7 @@ const en: Dict = {
   'notify.disconnectedBody': 'Tunnel {id} ended.',
   'notify.updateTitle': 'My VPNs update available',
   'notify.updateBody':
-    'Version {latest} is out (you have {current}). Click to open the release.',
+    'Version {latest} is out (you have {current}). Open My VPNs to install it.',
   'form.createTitle': 'New connection',
   'form.editTitle': 'Edit connection',
   'form.importTitle': 'Import connection',
@@ -194,8 +201,15 @@ const en: Dict = {
   'form.saving': 'Saving…',
   'form.cancel': 'Cancel',
   'update.available': 'Update available · {latest} (you have {current})',
-  'update.aptHint': 'Download the installer for your operating system from the release page.',
+  'update.aptHint': 'Download and install the package for your operating system. Administrator approval may be requested.',
   'update.open': 'Release notes',
+  'update.install': 'Download and install',
+  'update.installing': 'Downloading update…',
+  'update.installFailed': 'Could not install this update.',
+  'update.installTitle': 'Install My VPNs update',
+  'update.installMessage': 'Version {latest} will be downloaded and installed. Active VPN tunnels will be disconnected first.',
+  'update.cancel': 'Cancel',
+  'update.cancelled': 'Update canceled.',
   'update.dismiss': 'Dismiss',
   'update.checkNow': 'Check for updates',
   'update.checking': 'Checking…',
@@ -268,7 +282,7 @@ const ptBR: Dict = {
   'notify.disconnectedBody': 'Túnel {id} encerrou.',
   'notify.updateTitle': 'Atualização do My VPNs disponível',
   'notify.updateBody':
-    'Saiu a versão {latest} (você tem {current}). Clique para abrir a release.',
+    'Saiu a versão {latest} (você tem {current}). Abra o My VPNs para instalar.',
   'form.createTitle': 'Nova conexão',
   'form.editTitle': 'Editar conexão',
   'form.importTitle': 'Importar conexão',
@@ -299,8 +313,15 @@ const ptBR: Dict = {
   'form.saving': 'Salvando…',
   'form.cancel': 'Cancelar',
   'update.available': 'Atualização disponível · {latest} (você tem {current})',
-  'update.aptHint': 'Baixe o instalador do seu sistema na página da versão.',
+  'update.aptHint': 'Baixe e instale o pacote do seu sistema. O sistema pode pedir autorização de administrador.',
   'update.open': 'Notas da release',
+  'update.install': 'Baixar e instalar',
+  'update.installing': 'Baixando atualização…',
+  'update.installFailed': 'Não foi possível instalar esta atualização.',
+  'update.installTitle': 'Instalar atualização do My VPNs',
+  'update.installMessage': 'A versão {latest} será baixada e instalada. As VPNs ativas serão desconectadas antes.',
+  'update.cancel': 'Cancelar',
+  'update.cancelled': 'Atualização cancelada.',
   'update.dismiss': 'Dispensar',
   'update.checkNow': 'Verificar atualizações',
   'update.checking': 'Verificando…',

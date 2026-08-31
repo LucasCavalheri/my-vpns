@@ -82,6 +82,19 @@ Then launch **My VPNs** from your app menu. Packaged binary typically lives at:
 "/opt/My VPNs/my-vpns"
 ```
 
+### Atualizações dentro do app
+
+Quando uma release estável nova é publicada, o banner do My VPNs oferece
+**Baixar e instalar**. O download é feito diretamente dos artefatos da release
+do GitHub e, quando disponível, o digest SHA-256 é conferido antes da execução.
+Windows abre o instalador NSIS com UAC; macOS substitui a aplicação pelo ZIP da
+mesma arquitetura e a reabre; Debian/Ubuntu usam `pkexec apt-get`, enquanto
+Fedora/RHEL/openSUSE usam o gerenciador RPM com autorização do sistema.
+
+As VPNs ativas são desconectadas antes da troca do programa. Se a distribuição,
+arquitetura ou política de assinatura não for compatível, o banner mantém o
+link para a página da release para instalação manual.
+
 ### How to publish a release
 
 **Automatic (preferred):** push a version tag — CI builds Linux, macOS and Windows installers and creates the GitHub Release.

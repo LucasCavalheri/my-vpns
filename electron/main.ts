@@ -9,12 +9,15 @@ import {
   ipcMain,
   shell,
   dialog,
+  type MessageBoxOptions,
 } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { VpnManager, summarizeVpnState, type VpnProfile, type VpnState } from './vpn'
 import {
+  detectDistro,
   getDependencyStatus,
   installVpnClient,
 } from './deps'
@@ -37,7 +40,12 @@ import {
   saveProfileDraft,
   type VpnProfileDraft,
 } from './profiles'
-import { checkForAppUpdate, type UpdateInfo } from './updates'
+import {
+  checkForAppUpdate,
+  downloadUpdateArtifact,
+  selectUpdateArtifact,
+  type UpdateInfo,
+} from './updates'
 import {
   nextCheckDelayMs,
   type UpdateScheduleState,
@@ -81,6 +89,7 @@ const updateSchedule: UpdateScheduleState = {
   consecutiveFailures: 0,
 }
 let notifiedVersion: string | null = null
+let updateInProgress = false
 
 function iconPath(): string {
   const candidates = [
@@ -217,7 +226,8 @@ async function performUpdateCheck(manual: boolean): Promise<UpdateCheckResult> {
           silent: false,
         })
         notification.on('click', () => {
-          void shell.openExternal(info.url)
+          mainWindow?.show()
+          mainWindow?.focus()
         })
         if (Notification.isSupported()) notification.show()
       }
@@ -233,6 +243,138 @@ async function performUpdateCheck(manual: boolean): Promise<UpdateCheckResult> {
     }
   } finally {
     if (!manual) scheduleNextUpdateCheck()
+  }
+}
+
+function runUpdateProcess(
+  command: string,
+  args: string[],
+): Promise<{ code: number | null; output: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    let output = ''
+    const onChunk = (chunk: Buffer) => {
+      output += chunk.toString('utf8')
+      if (output.length > 20_000) output = output.slice(-20_000)
+    }
+    child.stdout?.on('data', onChunk)
+    child.stderr?.on('data', onChunk)
+    child.on('error', (error) => resolve({ code: 1, output: error.message }))
+    child.on('close', (code) => resolve({ code, output: output.trim() }))
+  })
+}
+
+function launchMacUpdater(archive: string): void {
+  const bundle = path.resolve(app.getPath('exe'), '../../..')
+  // The helper is deliberately a static shell script with positional arguments;
+  // paths from the downloaded archive are never interpolated into shell code.
+  const script = [
+    'set -eu',
+    'archive="$1"',
+    'target="$2"',
+    'tmp="$(mktemp -d -t my-vpns-unpack)"',
+    'trap \'rm -rf "$tmp"\' EXIT',
+    'ditto -x -k "$archive" "$tmp"',
+    'new="$(find "$tmp" -maxdepth 2 -type d -name \'*.app\' -print -quit)"',
+    '[ -n "$new" ]',
+    'sleep 1',
+    'rm -rf "$target"',
+    'ditto "$new" "$target"',
+    'open "$target"',
+  ].join('\n')
+  const child = spawn('sh', ['-c', script, 'my-vpns-updater', archive, bundle], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  })
+  child.unref()
+}
+
+function linuxUpdateArgs(artifact: NonNullable<UpdateInfo['artifacts']>[number], file: string): string[] | null {
+  const family = detectDistro().family
+  if (artifact.kind === 'deb' && family === 'apt') {
+    return ['env', 'DEBIAN_FRONTEND=noninteractive', 'apt-get', 'install', '-y', file]
+  }
+  if (artifact.kind === 'rpm' && family === 'dnf') return ['dnf', 'install', '-y', file]
+  if (artifact.kind === 'rpm' && family === 'yum') return ['yum', 'install', '-y', file]
+  if (artifact.kind === 'rpm' && family === 'zypper') {
+    return ['zypper', '--non-interactive', 'install', file]
+  }
+  return null
+}
+
+async function installAppUpdate(info: UpdateInfo): Promise<{
+  status: 'started' | 'unsupported' | 'error'
+  message?: string
+}> {
+  if (updateInProgress) return { status: 'error', message: 'Outra atualização já está em andamento.' }
+  const artifact = selectUpdateArtifact(
+    info.artifacts ?? [],
+    process.platform,
+    process.arch,
+    process.platform === 'linux' ? detectDistro().family : undefined,
+  )
+  if (!artifact) {
+    return {
+      status: 'unsupported',
+      message: 'Não há um instalador compatível com este sistema nesta release.',
+    }
+  }
+
+  const prompt: MessageBoxOptions = {
+    type: 'question',
+    title: t('update.installTitle'),
+    message: t('update.installMessage', { latest: info.latest }),
+    detail: artifact.name,
+    buttons: [t('update.install'), t('update.cancel')],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  }
+  const answer = mainWindow
+    ? await dialog.showMessageBox(mainWindow, prompt)
+    : await dialog.showMessageBox(prompt)
+  if (answer.response !== 0) return { status: 'error', message: t('update.cancelled') }
+
+  updateInProgress = true
+  try {
+    await vpn.disconnect()
+    tunnelsStopped = true
+    const file = await downloadUpdateArtifact(artifact)
+
+    if (process.platform === 'win32') {
+      const child = spawn(file, [], { detached: true, stdio: 'ignore', windowsHide: false })
+      child.unref()
+      quitting = true
+      app.quit()
+      return { status: 'started' }
+    }
+
+    if (process.platform === 'darwin') {
+      launchMacUpdater(file)
+      quitting = true
+      app.quit()
+      return { status: 'started' }
+    }
+
+    const args = linuxUpdateArgs(artifact, file)
+    if (!args) return { status: 'unsupported', message: 'Gerenciador de pacotes não suportado.' }
+    const result = await runUpdateProcess('pkexec', args)
+    if (result.code !== 0) {
+      return { status: 'error', message: result.output || 'O gerenciador de pacotes recusou a atualização.' }
+    }
+    app.relaunch()
+    quitting = true
+    app.exit(0)
+    return { status: 'started' }
+  } catch (error) {
+    return { status: 'error', message: error instanceof Error ? error.message : String(error) }
+  } finally {
+    updateInProgress = false
   }
 }
 
@@ -484,6 +626,13 @@ function registerIpc(): void {
       return { ok: true }
     }
     return { ok: false }
+  })
+
+  ipcMain.handle('updates:install', (_e, info: UpdateInfo) => {
+    if (!info || typeof info.latest !== 'string' || !Array.isArray(info.artifacts)) {
+      return { status: 'error', message: 'Dados da atualização inválidos.' }
+    }
+    return installAppUpdate(info)
   })
 }
 

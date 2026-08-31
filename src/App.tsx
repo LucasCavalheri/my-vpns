@@ -362,6 +362,7 @@ function Desk() {
         <UpdateBanner
           update={update}
           onOpen={(url) => void window.myVpns?.openUpdateUrl(url)}
+          onInstall={() => window.myVpns.installUpdate(update)}
           onDismiss={() => {
             void window.myVpns?.dismissUpdate(update.latest)
             setUpdate(null)
