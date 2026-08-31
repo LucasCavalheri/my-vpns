@@ -42,7 +42,7 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 
 ### From GitHub Releases (recommended)
 
-Starting with **1.1.0-beta.1**, the release workflow builds `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Choose the [pre-release](https://github.com/LucasCavalheri/my-vpns/releases/tag/v1.1.0-beta.1) to test the new platforms; older stable releases are Linux-only. Pre-releases do not update the stable APT repository.
+Starting with **1.1.0-beta.2**, the release workflow builds `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Choose the [pre-release](https://github.com/LucasCavalheri/my-vpns/releases/tag/v1.1.0-beta.2) to test the new platforms; older stable releases are Linux-only. Pre-releases do not update the stable APT repository.
 
 #### macOS
 

@@ -33,7 +33,15 @@ jobs:
         run: ./scripts/prepare-windows-test.ps1
       - run: npm test
       - run: npm run lint
-      - run: npm run ${{ matrix.command }}
+      - name: Build native installer
+        shell: bash
+        run: |
+          # Missing GitHub secrets become empty strings. electron-builder
+          # treats an empty CSC_LINK as a certificate path to the cwd.
+          for variable in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [[ -z "${!variable}" ]]; then unset "$variable"; fi
+          done
+          npm run ${{ matrix.command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
