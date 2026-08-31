@@ -1,7 +1,11 @@
+param([string]$Action = $env:reason, [string]$SessionDir = $env:MYVPNS_SESSION_DIR)
 # OpenConnect vpnc-script environment. Only manage settings owned by this tunnel.
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$env:MYVPNS_SESSION_DIR = $SessionDir
 $stateFile = Join-Path $env:MYVPNS_SESSION_DIR 'network-state.json'
 $utf8 = New-Object Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8
 function Get-OtherRoutes {
     $root = Split-Path -Parent $env:MYVPNS_SESSION_DIR
     # TEMP may use an 8.3 path (RUNNER~1, for example), while enumeration
@@ -19,7 +23,81 @@ function Other-UsesRoute([string]$prefix, [int]$index, [string]$nextHop) {
     return [bool]@(Get-OtherRoutes | Where-Object { $_.prefix -eq $prefix -and $_.index -eq $index -and $_.nextHop -eq $nextHop }).Count
 }
 function Save-State { [IO.File]::WriteAllText($stateFile, ($script:state | ConvertTo-Json -Depth 8), $utf8) }
+function Assert-Network($saved, [bool]$probe = $false) {
+    $adapter = Get-NetAdapter -IncludeHidden | Where-Object { $_.ifIndex -eq $saved.index } | Select-Object -First 1
+    if (!$adapter -or $adapter.InterfaceGuid.ToString() -ne $saved.guid -or [string]$adapter.Status -ne 'Up') { throw 'VPN adapter is absent or down.' }
+    $iface = Get-NetIPInterface -InterfaceIndex $saved.index -AddressFamily IPv4
+    if (!$iface -or [string]$iface.ConnectionState -ne 'Connected') { throw 'VPN IP interface is disconnected.' }
+    if ([int]$iface.NlMtu -lt 576 -or [int]$iface.NlMtu -gt [int]$saved.mtu) { throw "VPN MTU mismatch: adapter=$($iface.NlMtu), negotiated=$($saved.mtu)." }
+    $address = Get-NetIPAddress -InterfaceIndex $saved.index -IPAddress $saved.ip -ErrorAction SilentlyContinue
+    if (!$address -or [string]$address.AddressState -notin @('Preferred', 'Deprecated')) { throw 'VPN IP address is not usable.' }
+    foreach ($route in $saved.expectedRoutes) {
+        if (!(Get-NetRoute -DestinationPrefix $route.prefix -InterfaceIndex $route.index -NextHop $route.nextHop -ErrorAction SilentlyContinue)) { throw "VPN route is missing: $($route.prefix)." }
+    }
+    if ($probe -and $saved.healthHost) {
+        $route = Find-NetRoute -RemoteIPAddress $saved.healthHost | Where-Object { $_.NextHop } | Select-Object -First 1
+        if (!$route -or $route.InterfaceIndex -ne $saved.index) { throw 'Health-check traffic would bypass the VPN adapter.' }
+        $tcp = New-Object Net.Sockets.TcpClient
+        try {
+            $tcp.Client.Bind((New-Object Net.IPEndPoint([Net.IPAddress]::Parse($saved.ip), 0)))
+            $pending = $tcp.BeginConnect([string]$saved.healthHost, [int]$saved.healthPort, $null, $null)
+            try {
+                if (!$pending.AsyncWaitHandle.WaitOne(3000)) { throw 'VPN service reachability check timed out.' }
+                $tcp.EndConnect($pending)
+            } finally { $pending.AsyncWaitHandle.Close() }
+        } finally { $tcp.Close() }
+    }
+}
+function Configure-Dns {
+    if (!$script:state.setDns -or $script:state.dnsConfigured) { return }
+    $splitFile = Join-Path $SessionDir 'split-dns.json'
+    $groups = @()
+    if (Test-Path -LiteralPath $splitFile) { $groups = @(Get-Content -LiteralPath $splitFile -Raw -Encoding UTF8 | ConvertFrom-Json) }
+    if (!$groups.Count -and $script:state.splitDomains) { $groups = @(@{ domains=@($script:state.splitDomains -split ','); servers=@($script:state.vpnDns) }) }
+    if ($groups.Count) {
+        foreach ($group in $groups) {
+            $servers = @($group.servers | ForEach-Object { $ip=[Net.IPAddress]::Parse($_); if ($ip.AddressFamily -ne 'InterNetwork') { throw 'Only IPv4 split-DNS servers are supported.' }; $ip.ToString() } | Select-Object -Unique)
+            if (!$servers.Count) { throw 'Split-DNS has no valid servers.' }
+            foreach ($domain in $group.domains) {
+                if ($domain.Length -gt 253 -or $domain -notmatch '^(?=.{1,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?$' -or $domain.Contains('..')) { throw 'Invalid split-DNS domain.' }
+                $namespace = @($domain, ".$domain")
+                $existing = @(Get-DnsClientNrptRule | Where-Object { @($_.Namespace | Where-Object { $_ -in $namespace }).Count })
+                foreach ($rule in $existing) {
+                    if ((@($rule.NameServers -split '[,; ]+' | Where-Object { $_ } | Sort-Object) -join ',') -ne (($servers | Sort-Object) -join ',')) { throw "Conflicting DNS policy already exists for $domain." }
+                }
+                $covered = @($existing | ForEach-Object { $_.Namespace } | Select-Object -Unique)
+                $missing = @($namespace | Where-Object { $_ -notin $covered })
+                if ($existing.Count) {
+                    # Preserve pre-existing policy. Our own rules may be shared
+                    # by simultaneous sessions and are removed by the last user.
+                    foreach ($rule in $existing) { $script:state.nrpt += @{ name=$rule.Name; owner=$rule.DisplayName } }
+                    Save-State
+                }
+                if (!$missing.Count) { continue }
+                $display = 'MyVPNs-' + (Get-Item -LiteralPath $SessionDir).Name + '-' + $domain
+                $script:state.nrpt += @{ name=''; owner=$display }
+                Save-State
+                $rule = Add-DnsClientNrptRule -Namespace $missing -NameServers $servers -DisplayName $display -Comment 'Managed by My VPNs; removed when the tunnel disconnects.' -PassThru
+                $script:state.nrpt[-1].name = $rule.Name
+                Save-State
+                if (!(Get-DnsClientNrptRule -Name $rule.Name)) { throw 'Could not verify the split-DNS policy.' }
+            }
+        }
+    } else {
+        $servers = @($script:state.vpnDns)
+        if (!$servers.Count) { throw 'set-dns=1 but no VPN DNS servers were received.' }
+        $script:state.dnsChanged = $true
+        Save-State
+        Set-DnsClientServerAddress -InterfaceIndex $script:state.index -ServerAddresses $servers
+        Set-NetIPInterface -InterfaceIndex $script:state.index -AddressFamily IPv4 -AutomaticMetric Disabled -InterfaceMetric 1
+        if ($script:state.vpnSuffix) { Set-DnsClient -InterfaceIndex $script:state.index -ConnectionSpecificSuffix $script:state.vpnSuffix }
+    }
+    $script:state.dnsConfigured = $true
+    Save-State
+}
 function Add-OwnedRoute([string]$prefix, [int]$index, [string]$nextHop) {
+    $script:state.expectedRoutes += @{ prefix=$prefix; index=$index; nextHop=$nextHop }
+    Save-State
     $exists = Get-NetRoute -DestinationPrefix $prefix -InterfaceIndex $index -NextHop $nextHop -ErrorAction SilentlyContinue
     if (!$exists -or (Other-UsesRoute $prefix $index $nextHop)) {
         # Record intent first so a partial failure can still be rolled back.
@@ -31,6 +109,16 @@ function Add-OwnedRoute([string]$prefix, [int]$index, [string]$nextHop) {
 function Restore-Network {
     if (!(Test-Path -LiteralPath $stateFile)) { return }
     $saved = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    foreach ($entry in $saved.nrpt) {
+        if ($entry.owner -notlike 'MyVPNs-session-*') { continue }
+        $shared = $false
+        foreach ($dir in Get-ChildItem -LiteralPath (Split-Path -Parent $SessionDir) -Directory -Filter 'session-*') {
+            if ($dir.Name -eq (Get-Item -LiteralPath $SessionDir).Name) { continue }
+            $other = Join-Path $dir.FullName 'network-state.json'
+            if (Test-Path -LiteralPath $other) { if (@((Get-Content -LiteralPath $other -Raw -Encoding UTF8 | ConvertFrom-Json).nrpt | Where-Object { $_.owner -eq $entry.owner }).Count) { $shared = $true } }
+        }
+        if (!$shared) { Get-DnsClientNrptRule | Where-Object DisplayName -eq $entry.owner | Remove-DnsClientNrptRule -Force -ErrorAction Stop }
+    }
     $adapter = Get-NetAdapter -IncludeHidden | Where-Object { $_.ifIndex -eq $saved.index } | Select-Object -First 1
     foreach ($route in $saved.routes) {
         if ($route.index -eq $saved.index -and (!$adapter -or $adapter.InterfaceGuid.ToString() -ne $saved.guid)) { continue }
@@ -38,7 +126,13 @@ function Restore-Network {
         Get-NetRoute -DestinationPrefix $route.prefix -InterfaceIndex $route.index -NextHop $route.nextHop -ErrorAction SilentlyContinue |
             Remove-NetRoute -Confirm:$false -ErrorAction Stop
     }
-    if ($adapter -and $adapter.InterfaceGuid.ToString() -eq $saved.guid) {
+    # A disabled/removed Wintun device can still appear in Get-NetAdapter after
+    # its IP interface is gone. There is nothing left to restore in that case.
+    $ipInterface = if ($adapter -and $adapter.InterfaceGuid.ToString() -eq $saved.guid) {
+        Get-NetIPInterface -InterfaceIndex $saved.index -AddressFamily IPv4 -ErrorAction SilentlyContinue
+    }
+    if ($ipInterface) {
+        if ($saved.mtuChanged) { Set-NetIPInterface -InterfaceIndex $saved.index -AddressFamily IPv4 -NlMtuBytes $saved.originalMtu -PolicyStore ActiveStore }
         if ($saved.dnsChanged) {
             if (@($saved.dns).Count) { Set-DnsClientServerAddress -InterfaceIndex $saved.index -ServerAddresses @($saved.dns) }
             else { Set-DnsClientServerAddress -InterfaceIndex $saved.index -ResetServerAddresses }
@@ -56,25 +150,45 @@ function Restore-Network {
 $mutex = New-Object Threading.Mutex($false, 'Global\MyVPNsNetwork-v1')
 $locked = $false
 try {
-    try { $locked = $mutex.WaitOne(30000) } catch [Threading.AbandonedMutexException] { $locked = $true }
+    try { $locked = $mutex.WaitOne(3000) } catch [Threading.AbandonedMutexException] { $locked = $true }
     if (!$locked) { throw 'Timed out waiting for another VPN network operation.' }
-    if ($env:reason -eq 'disconnect') { Restore-Network; return }
-    if ($env:reason -notin @('connect', 'reconnect')) { return }
-    if ($env:reason -eq 'reconnect') { Restore-Network }
+    if ($Action -eq 'disconnect') { Restore-Network; return }
+    if ($Action -in @('check', 'ready')) {
+        $script:state = Get-Content -LiteralPath $stateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($Action -eq 'ready') { Configure-Dns }
+        else { Assert-Network $script:state $true }
+        return [pscustomobject]@{ ok=$true; message=''; mtu=$script:state.mtu; splitDnsRules=@($script:state.nrpt).Count }
+    }
+    if ($Action -notin @('connect', 'reconnect')) { return }
+    if ($Action -eq 'reconnect') { Restore-Network }
     $index = [int]$env:TUNIDX
     $adapter = Get-NetAdapter -IncludeHidden | Where-Object { $_.ifIndex -eq $index } | Select-Object -First 1
     if (!$adapter) { throw 'VPN adapter not found.' }
     $ip = [Net.IPAddress]::Parse($env:INTERNAL_IP4_ADDRESS)
     if ($ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { throw 'An IPv4 tunnel address is required.' }
-    $script:state = @{ index=$index; guid=$adapter.InterfaceGuid.ToString(); routes=@(); ip=$ip.ToString(); ipAdded=$false;
+    $mtu = 0
+    if (![int]::TryParse($env:INTERNAL_IP4_MTU, [ref]$mtu) -or $mtu -lt 576 -or $mtu -gt 65535) { throw 'OpenConnect did not provide a valid negotiated IPv4 MTU.' }
+    $script:state = @{ index=$index; guid=$adapter.InterfaceGuid.ToString(); routes=@(); expectedRoutes=@(); ip=$ip.ToString(); ipAdded=$false;
+        mtu=$mtu; originalMtu=0; mtuChanged=$false; nrpt=@(); dnsConfigured=$false; setDns=($env:MYVPNS_SET_DNS -eq '1');
+        vpnDns=@($env:INTERNAL_IP4_DNS -split '\s+' | Where-Object { $_ } | ForEach-Object { [Net.IPAddress]::Parse($_).ToString() });
+        vpnSuffix=$env:CISCO_DEF_DOMAIN; splitDomains=$env:CISCO_SPLIT_DNS; healthHost=$env:MYVPNS_HEALTH_HOST; healthPort=$env:MYVPNS_HEALTH_PORT;
         dns=@((Get-DnsClientServerAddress -InterfaceIndex $index -AddressFamily IPv4).ServerAddresses);
         suffix=(Get-DnsClient -InterfaceIndex $index).ConnectionSpecificSuffix; dnsChanged=$false }
     $ipInterface = Get-NetIPInterface -InterfaceIndex $index -AddressFamily IPv4
     $script:state.metric = [int]$ipInterface.InterfaceMetric
     $script:state.automaticMetric = [string]$ipInterface.AutomaticMetric
+    $script:state.originalMtu = [int]$ipInterface.NlMtu
     Save-State
     $setRoutes = $env:MYVPNS_SET_ROUTES -eq '1'
-    $setDns = $env:MYVPNS_SET_DNS -eq '1'
+    # Apply negotiated MTU before assigning a tunnel IP or installing routes.
+    # This is the IP MTU (already excludes TLS/DTLS/PPP overhead), not a fixed
+    # Ethernet default and not a value inferred from a prior session's logs.
+    $script:state.mtuChanged = $true
+    Save-State
+    Set-NetIPInterface -InterfaceIndex $index -AddressFamily IPv4 -NlMtuBytes $mtu -PolicyStore ActiveStore
+    $effectiveMtu = [int](Get-NetIPInterface -InterfaceIndex $index -AddressFamily IPv4).NlMtu
+    if ($effectiveMtu -lt 576 -or $effectiveMtu -gt $mtu) { throw "Adapter did not apply negotiated MTU $mtu (effective $effectiveMtu)." }
+    Write-Output "VPN MTU applied: negotiated=$mtu, effective=$effectiveMtu"
     if ($setRoutes) {
         $gateway = [Net.IPAddress]::Parse($env:VPNGATEWAY)
         $transport = Find-NetRoute -RemoteIPAddress $gateway.ToString() | Where-Object { $_.NextHop } | Select-Object -First 1
@@ -106,17 +220,11 @@ try {
             Add-OwnedRoute ($address.ToString() + '/' + $mask) $transport.InterfaceIndex $transport.NextHop
         }
     }
-    if ($setDns) {
-        $servers = @($env:INTERNAL_IP4_DNS -split '\s+' | Where-Object { $_ } | ForEach-Object { [Net.IPAddress]::Parse($_).ToString() })
-        if (!$servers.Count) { throw 'set-dns=1 but no VPN DNS servers were received.' }
-        $script:state.dnsChanged = $true
-        Save-State
-        Set-DnsClientServerAddress -InterfaceIndex $index -ServerAddresses $servers
-        Set-NetIPInterface -InterfaceIndex $index -AddressFamily IPv4 -AutomaticMetric Disabled -InterfaceMetric 1
-        if ($env:CISCO_DEF_DOMAIN) { Set-DnsClient -InterfaceIndex $index -ConnectionSpecificSuffix $env:CISCO_DEF_DOMAIN }
-    }
-    Write-Output 'MYVPNS_TUNNEL_UP'
+    # OpenConnect waits at most 10s for this script. DNS and service probes run
+    # in the supervisor afterwards, once the client's packet loop is running.
+    Write-Output 'MYVPNS_NETWORK_READY'
 } catch {
+    if ($Action -in @('check', 'ready')) { return [pscustomobject]@{ ok=$false; message=$_.Exception.Message } }
     [Console]::Error.WriteLine("ERROR: VPN network configuration: " + $_.Exception.Message)
     [IO.File]::WriteAllText((Join-Path $env:MYVPNS_SESSION_DIR 'stop'), '', $utf8)
     if ($locked) { try { Restore-Network } catch { [Console]::Error.WriteLine("ERROR: VPN cleanup: " + $_.Exception.Message) } }

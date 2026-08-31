@@ -11,6 +11,18 @@ export interface OpenConnectPlan {
   setDns: boolean
   setRoutes: boolean
   persistent: number
+  healthHost?: string
+  healthPort?: number
+}
+
+/** App metadata stays in comments so the same file still works with openfortivpn. */
+export function profileHealthCheck(raw: string): { healthHost?: string; healthPort?: number } {
+  const host = raw.match(/^\s*#\s*my-vpns-health-host\s*=\s*(\S+)\s*$/m)?.[1]
+  const portText = raw.match(/^\s*#\s*my-vpns-health-port\s*=\s*(\S+)\s*$/m)?.[1]
+  if (!host && !portText) return {}
+  const port = Number(portText)
+  if (!host || isIP(host) !== 4 || !Number.isInteger(port) || port < 1 || port > 65535) throw new Error('VPN health check requires an IPv4 address and a TCP port (1–65535).')
+  return { healthHost: host, healthPort: port }
 }
 
 export function confEntries(raw: string): [string, string][] {
@@ -45,7 +57,7 @@ export function buildOpenConnectPlan(raw: string): OpenConnectPlan {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid VPN port.')
   const persistent = Number(values.get('persistent') || 0)
   if (!Number.isInteger(persistent) || persistent < 0) throw new Error('Invalid persistent interval.')
-  const args = ['--protocol=fortinet', '--passwd-on-stdin', '--disable-ipv6']
+  const args = ['--protocol=fortinet', '--passwd-on-stdin', '--disable-ipv6', '--force-dpd=10']
   if (!values.get('otp')) args.push('--non-inter')
   const user = values.get('username') ?? values.get('user')
   if (user) args.push(`--user=${user}`)
@@ -61,7 +73,7 @@ export function buildOpenConnectPlan(raw: string): OpenConnectPlan {
   if (trustedCerts.some(pin => !/^[a-f0-9]{64}$/.test(pin))) throw new Error('trusted-cert must be a complete SHA256 certificate fingerprint (64 hex characters).')
   const password = values.get('password') || ''
   const otp = values.get('otp')
-  return { args, password: password + '\n' + (otp ? otp + '\n' : ''), host, port, trustedCerts,
+  return { ...profileHealthCheck(raw), args, password: password + '\n' + (otp ? otp + '\n' : ''), host, port, trustedCerts,
     persistent, setDns: bool(values.get('set-dns'), true), setRoutes: bool(values.get('set-routes'), true) }
 }
 

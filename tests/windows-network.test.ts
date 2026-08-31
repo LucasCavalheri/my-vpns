@@ -7,15 +7,16 @@ import { describe, expect, it } from 'vitest'
 import { powershellPath } from '../electron/nativeVpn'
 const execFileAsync = promisify(execFile)
 
-async function network(dns: number, routes: number, flag?: string) {
+async function network(dns: number, routes: number, ...flags: string[]) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'my-vpns-network-test-'))
   const dir = path.join(root, 'session-test')
   fs.mkdirSync(dir)
   try {
     const { stdout } = await execFileAsync(powershellPath, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File',
-      path.resolve('tests/fixtures/network-harness.ps1'), '-SessionDir', dir, '-Dns', String(dns), '-Routes', String(routes), ...(flag ? [flag] : [])],
+      path.resolve('tests/fixtures/network-harness.ps1'), '-SessionDir', dir, '-Dns', String(dns), '-Routes', String(routes), ...flags],
     { windowsHide: true, timeout: 20000 })
-    return JSON.parse(stdout.trim()) as { connected: string[]; operations: { action: string; servers?: string[]; prefix?: string }[];
+    return JSON.parse(stdout.trim()) as { connected: string[]; operations: { action: string; servers?: string[]; prefix?: string; value?: number; namespaces?: string[] }[];
+      ready: { ok: boolean; message: string }; health: { ok: boolean }; brokenHealth: { ok: boolean; message: string }; effectiveMtu: number; remainingNrpt: {Name: string}[];
       remaining: { prefix: string }[]; duplicateCleanupChanges: number; stateExists: boolean }
   } finally {
     for (const folder of fs.readdirSync(root)) {
@@ -27,10 +28,11 @@ async function network(dns: number, routes: number, flag?: string) {
   }
 }
 
-describe.skipIf(process.platform !== 'win32')('Windows networking helper with mocked OS cmdlets', () => {
+describe.skipIf(process.platform !== 'win32')('Windows networking helper with mocked OS cmdlets', { timeout: 25000 }, () => {
   it.each([[0, 0], [0, 1], [1, 0], [1, 1]])('honors set-dns=%i and set-routes=%i and rolls back only its own changes', async (dns, routes) => {
     const result = await network(dns, routes)
-    expect(result.connected).toContain('MYVPNS_TUNNEL_UP')
+    expect(result.connected).toContain('MYVPNS_NETWORK_READY')
+    expect(result.health.ok).toBe(true)
     const dnsWrites = result.operations.filter(op => op.action === 'dns')
     expect(dnsWrites).toHaveLength(dns ? 2 : 0)
     if (dns) expect(dnsWrites[1].servers).toEqual(['192.0.2.53'])
@@ -42,7 +44,7 @@ describe.skipIf(process.platform !== 'win32')('Windows networking helper with mo
 
   it('rolls back partial setup and never reports connected when a route fails', async () => {
     const result = await network(1, 1, '-FailRoute')
-    expect(result.connected).not.toContain('MYVPNS_TUNNEL_UP')
+    expect(result.connected).not.toContain('MYVPNS_NETWORK_READY')
     expect(result.remaining).toEqual([])
     expect(result.stateExists).toBe(false)
   })
@@ -54,9 +56,48 @@ describe.skipIf(process.platform !== 'win32')('Windows networking helper with mo
 
   it('removes owned routes when Windows TEMP uses short 8.3 path aliases', async () => {
     const result = await network(1, 1, '-ShortPath')
-    expect(result.connected).toContain('MYVPNS_TUNNEL_UP')
+    expect(result.connected).toContain('MYVPNS_NETWORK_READY')
     expect(result.operations.filter(op => op.action === 'route-remove')).toHaveLength(2)
     expect(result.remaining).toEqual([])
     expect(result.stateExists).toBe(false)
+  })
+
+  it.each([1351, 1280, 1400])('applies negotiated MTU %i before IP/routes and restores the original MTU', async (mtu) => {
+    const result = await network(1, 1, '-Mtu', String(mtu))
+    expect(result.operations[0]).toEqual({ action: 'mtu', value: mtu })
+    expect(result.operations.filter(op => op.action === 'mtu').map(op => op.value)).toEqual([mtu, 65535])
+    expect(result.health.ok).toBe(true)
+    expect(result.effectiveMtu).toBe(65535)
+  })
+
+  it.each([['-RejectMtu'], ['-Mtu', '0'], ['-Mtu', '65536']])('fails closed when MTU cannot be safely applied: %s', async (...flags) => {
+    const result = await network(1, 1, ...flags)
+    expect(result.connected).not.toContain('MYVPNS_NETWORK_READY')
+    expect(result.operations.filter(op => ['ip-add', 'route-add'].includes(op.action))).toEqual([])
+    expect(result.stateExists).toBe(false)
+  })
+
+  it.each(['adapter', 'interface', 'route', 'ip', 'mtu'])('detects a lost or incompatible %s after connection', async (drop) => {
+    const result = await network(1, 1, '-Drop', drop)
+    expect(result.health.ok).toBe(true)
+    expect(result.brokenHealth.ok).toBe(false)
+    expect(result.brokenHealth.message).toMatch(/absent|missing|usable|mismatch|disconnected/)
+    expect(result.stateExists).toBe(false)
+  })
+
+  it('uses domain-specific NRPT instead of changing global DNS, and removes its policy on disconnect', async () => {
+    const result = await network(1, 1, '-SplitDns')
+    expect(result.ready.ok).toBe(true)
+    expect(result.operations.find(op => op.action === 'nrpt-add')).toMatchObject({ namespaces: ['corp.test', '.corp.test'], servers: ['198.18.0.53'] })
+    expect(result.operations.filter(op => op.action === 'dns')).toEqual([])
+    expect(result.operations.filter(op => op.action === 'nrpt-remove')).toHaveLength(1)
+    expect(result.remainingNrpt).toEqual([])
+  })
+
+  it('refuses a conflicting DNS policy without replacing or deleting it', async () => {
+    const result = await network(1, 1, '-SplitDns', '-DnsConflict')
+    expect(result.ready.ok).toBe(false)
+    expect(result.ready.message).toContain('Conflicting DNS policy')
+    expect(result.remainingNrpt.map(r => r.Name)).toEqual(['preexisting'])
   })
 })

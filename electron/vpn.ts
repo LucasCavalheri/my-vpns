@@ -135,8 +135,9 @@ function parseConf(filePath: string): VpnProfile | null {
 
 export function interpretVpnLogLine(
   line: string,
-): 'connected' | 'error' | null {
+): 'connected' | 'disconnected' | 'error' | null {
   const lower = line.toLowerCase()
+  if (lower.startsWith('myvpns_tunnel_down')) return 'disconnected'
   if (CONNECTED_MARKERS.some((m) => lower.includes(m))) return 'connected'
   if (ERROR_MARKERS.some((m) => lower.includes(m))) return 'error'
   return null
@@ -295,7 +296,14 @@ export class VpnManager extends EventEmitter {
         if (this.live.get(profileId) !== live) return
         this.emitLog(`[${profile.id}] ${line}`)
         // Only the network helper confirms that routes and DNS were applied.
-        if (line.includes('MYVPNS_TUNNEL_UP') || interpretVpnLogLine(line) === 'error') this.interpretLine(profileId, line)
+        if ((process.platform !== 'win32' && line.includes('MYVPNS_TUNNEL_UP')) || interpretVpnLogLine(line) === 'error') this.interpretLine(profileId, line)
+      })
+      native.on('status', (status: { phase: VpnStatus; message: string }) => {
+        if (this.live.get(profileId) !== live || live.intentionalStop) return
+        live.status = status.phase
+        live.message = status.message || (status.phase === 'connected' ? 'Túnel e rede validados' : 'Túnel desconectado')
+        live.connectedAt = status.phase === 'connected' ? Date.now() : null
+        this.emitState()
       })
       native.on('close', (code: number) => {
         if (this.live.get(profileId) !== live) return
@@ -304,8 +312,8 @@ export class VpnManager extends EventEmitter {
         if (live.intentionalStop) {
           this.live.delete(profileId)
         } else {
-          const previousError = live.status === 'error' ? live.message : null
-          live.status = 'error'
+          const previousError = ['error', 'disconnected'].includes(live.status) ? live.message : null
+          live.status = live.status === 'connecting' || live.status === 'error' ? 'error' : 'disconnected'
           live.connectedAt = null
           live.message = previousError || (code === 126 ? 'Autenticação cancelada' : `Conexão encerrada (código ${code})`)
           if (code !== 126 && native.canReconnect) this.scheduleReconnect(profileId)
@@ -469,6 +477,13 @@ export class VpnManager extends EventEmitter {
 
     if (live.intentionalStop) return
     const kind = interpretVpnLogLine(line)
+    if (kind === 'disconnected') {
+      live.status = 'disconnected'
+      live.message = line.slice(0, 120)
+      live.connectedAt = null
+      this.emitState()
+      return
+    }
     if (kind === 'connected') {
       live.status = 'connected'
       live.message = 'Túnel ativo'
@@ -477,7 +492,7 @@ export class VpnManager extends EventEmitter {
       return
     }
 
-    if (kind === 'error' && live.status !== 'connected') {
+    if (kind === 'error' && (live.status === 'connecting' || live.status === 'error')) {
       live.status = 'error'
       live.message = line.slice(0, 120)
       this.emitState()

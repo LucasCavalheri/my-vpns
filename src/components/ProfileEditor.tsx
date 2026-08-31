@@ -149,6 +149,13 @@ export function ProfileEditor({
               />
             </Field>
 
+            <Field label={t('form.healthHost')} hint={t('form.healthHint')}>
+              <input value={draft.healthHost || ''} onChange={(e) => patch('healthHost', e.target.value)} className="field-input" placeholder="198.18.0.2" />
+            </Field>
+            <Field label={t('form.healthPort')}>
+              <input type="number" min={1} max={65535} value={draft.healthPort || ''} onChange={(e) => patch('healthPort', Number(e.target.value) || undefined)} className="field-input" />
+            </Field>
+
             <Field label={t('form.persistent')} hint={t('form.persistentHint')}>
               <input
                 type="number"

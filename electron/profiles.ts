@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { CONFIG_DIR, parseVpnConfContent, type VpnProfile } from './vpn'
 import { secureDirectory } from './nativeVpn'
-import { confEntries } from './openconnect'
+import { confEntries, profileHealthCheck } from './openconnect'
 
 export interface VpnProfileDraft {
   id: string
@@ -17,6 +17,8 @@ export interface VpnProfileDraft {
   setRoutes: boolean
   realm: string
   persistent: number
+  healthHost?: string
+  healthPort?: number
   /** Preserve imported options that the visual editor does not expose. */
   extraOptions?: [string, string][]
 }
@@ -90,6 +92,7 @@ export function parseVpnDraft(
 
   return {
     id,
+    ...profileHealthCheck(raw),
     host: host.trim(),
     port: Number.parseInt(map.get('port') ?? '443', 10) || 443,
     username: map.get('username') ?? map.get('user') ?? '',
@@ -145,6 +148,13 @@ export function serializeVpnDraft(draft: VpnProfileDraft): string {
       throw new Error(`Duplicate profile option: ${key}`)
     }
     lines.push(`${key} = ${value}`)
+  }
+
+  if (draft.healthHost || draft.healthPort) {
+    if (typeof draft.healthHost !== 'string' || /\s/.test(draft.healthHost) || draft.healthHost.includes('\0')) throw new Error('Invalid VPN health-check address.')
+    const metadata = `# my-vpns-health-host = ${draft.healthHost}\n# my-vpns-health-port = ${draft.healthPort}`
+    profileHealthCheck(metadata)
+    lines.push('', metadata)
   }
 
   lines.push('')

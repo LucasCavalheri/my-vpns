@@ -78,6 +78,8 @@ export interface VpnProfileDraft {
   setRoutes: boolean
   realm: string
   persistent: number
+  healthHost?: string
+  healthPort?: number
   extraOptions?: [string, string][]
 }
 

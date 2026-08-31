@@ -112,6 +112,14 @@ jobs:
             FLAGS+=(--prerelease=false --latest)
           fi
           cat > release-notes.md <<'EOF'
+          ## Windows tunnel reliability
+
+          - Apply and verify the MTU negotiated for each session before installing tunnel IP/routes.
+          - Validate adapter, IP, routes and effective MTU before showing connected; optionally check an internal TCP service configured in the profile editor.
+          - Detect tunnel loss and stale supervisor status; stop retrying rejected cookies or sessions where the gateway forbids reconnect-after-drop.
+          - Apply Fortinet split-DNS with scoped Windows NRPT policies and remove owned settings on disconnect.
+          - Retain secure CA/fingerprint verification and distinguish an unknown-CA warning from a verified certificate pin.
+
           ## Packages
 
           - `.deb` — Debian / Ubuntu / Mint
@@ -125,8 +133,9 @@ jobs:
           ### New platforms: validation limits
 
           Windows and macOS support is new. Automated checks cover profile
-          translation, local TLS/authentication and network cleanup logic;
-          a real FortiGate connection still requires validation on your machine.
+          translation, local TLS/authentication and network cleanup logic.
+          Windows MTU, service reachability and split-DNS were also checked on a
+          real FortiGate session; other gateways and macOS still require native validation.
           Windows currently supports IPv4 SSL VPN. SAML and all MFA variants
           are not verified. The packages may trigger SmartScreen/Gatekeeper
           warnings when signing credentials are not configured.

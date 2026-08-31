@@ -2,7 +2,7 @@
 
 **A desktop app for managing FortiGate SSL VPN connections on Linux, macOS and Windows.**
 
-Linux and macOS use **openfortivpn**. Windows uses **OpenConnect 9.21 + Wintun**, translating the existing openfortivpn `.conf` format. The current Windows implementation has localhost client integration tests; macOS and full gateway connectivity still require native acceptance testing. See [platform support and validation](docs/platform-support.md) before distributing the new packages.
+Linux and macOS use **openfortivpn**. Windows uses **OpenConnect 9.21 + Wintun**, translating the existing openfortivpn `.conf` format. Windows includes dynamic MTU configuration, tunnel health checks and Fortinet split-DNS, tested against a real gateway. macOS and other gateway/authentication policies still need native acceptance testing. See [platform support and validation](docs/platform-support.md).
 
 No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tunnels, park the app in the tray, get notified when a link drops, and manage profiles without editing files by hand.
 
@@ -42,7 +42,7 @@ No more babysitting a terminal with `sudo openfortivpn`. Connect one or many tun
 
 ### From GitHub Releases (recommended)
 
-Starting with **1.1.0**, [GitHub Releases](https://github.com/LucasCavalheri/my-vpns/releases/latest) include `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Older releases before 1.1.0 are Linux-only. Windows and macOS connection testing against a real FortiGate remains pending; see the validation notes below. Pre-releases remain available separately and do not update the stable APT repository.
+Starting with **1.1.0**, [GitHub Releases](https://github.com/LucasCavalheri/my-vpns/releases/latest) include `.deb` / `.rpm`, macOS `.dmg` / `.zip` for Intel and Apple Silicon, and a Windows x64 `.exe` installer. Use **1.1.1 or newer on Windows** for the Wintun MTU and tunnel-state fixes. Older releases before 1.1.0 are Linux-only. See the native validation notes below. Pre-releases remain available separately and do not update the stable APT repository.
 
 #### macOS
 

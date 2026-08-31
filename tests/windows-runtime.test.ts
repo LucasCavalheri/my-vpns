@@ -20,6 +20,38 @@ function startSupervisor(dir: string) {
 }
 
 describe.skipIf(!available)('real Windows OpenConnect supervisor (localhost only)', () => {
+  it.each(['untrusted CA', 'incorrect pin'])('refuses %s without transmitting HTTP credentials', async (mode) => {
+    const cert = fs.readFileSync(path.join(import.meta.dirname, 'fixtures/localhost-cert.pem'))
+    const key = fs.readFileSync(path.join(import.meta.dirname, 'fixtures/localhost-key.pem'))
+    let requests = 0
+    const server = https.createServer({ key, cert }, (_req, res) => { requests++; res.end('unexpected') })
+    await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'my-vpns-cert-test-'))
+    const port = (server.address() as { port: number }).port
+    const plan = buildOpenConnectPlan(`host=127.0.0.1\nport=${port}\nusername=test\npassword=never-send-this\nset-dns=0`)
+    if (mode === 'incorrect pin') plan.args.unshift(`--servercert=pin-sha256:${Buffer.alloc(32).toString('base64')}`)
+    fs.writeFileSync(path.join(dir, 'job.json'), JSON.stringify({ ...plan, bin }))
+    fs.writeFileSync(path.join(dir, 'heartbeat'), '')
+    const heartbeat = setInterval(() => fs.utimesSync(path.join(dir, 'heartbeat'), new Date(), new Date()), 250)
+    const child = startSupervisor(dir)
+    child.stdout.resume(); child.stderr.resume()
+    const timer = setTimeout(() => fs.writeFileSync(path.join(dir, 'stop'), ''), 20000)
+    try {
+      await new Promise<void>((resolve, reject) => { child.once('close', () => resolve()); child.once('error', reject) })
+      expect(requests).toBe(0)
+      expect(fs.readFileSync(path.join(dir, 'exit-code'), 'utf8').trim()).not.toBe('0')
+      const logs = fs.readFileSync(path.join(dir, 'stderr.log'), 'utf8')
+      expect(logs).toMatch(/certificate|SSL connection failure/i)
+      expect(logs).not.toContain('never-send-this')
+    } finally {
+      clearTimeout(timer); clearInterval(heartbeat)
+      server.closeAllConnections()
+      await new Promise<void>(resolve => server.close(() => resolve()))
+      for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name))
+      fs.rmdirSync(dir)
+    }
+  }, 40000)
+
   it('transmits an imported .conf login over TLS, preserves realm and special characters, and reports auth failure', async () => {
     const cert = fs.readFileSync(path.join(import.meta.dirname, 'fixtures/localhost-cert.pem'))
     const key = fs.readFileSync(path.join(import.meta.dirname, 'fixtures/localhost-key.pem'))
@@ -43,6 +75,7 @@ describe.skipIf(!available)('real Windows OpenConnect supervisor (localhost only
     plan.args.unshift(`--servercert=${certificatePublicKeyPin(raw, [pin])}`)
     fs.writeFileSync(path.join(dir, 'job.json'), JSON.stringify({ ...plan, bin }))
     fs.writeFileSync(path.join(dir, 'heartbeat'), '')
+    const heartbeat = setInterval(() => fs.utimesSync(path.join(dir, 'heartbeat'), new Date(), new Date()), 250)
     let output = ''
     const child = startSupervisor(dir)
     child.stdout.on('data', b => { output += b.toString() })
@@ -60,6 +93,7 @@ describe.skipIf(!available)('real Windows OpenConnect supervisor (localhost only
       expect(stderr).not.toContain(secret)
     } finally {
       clearTimeout(timer)
+      clearInterval(heartbeat)
       server.closeAllConnections()
       await new Promise<void>(resolve => server.close(() => resolve()))
       for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name))
@@ -87,6 +121,7 @@ describe.skipIf(!available)('real Windows OpenConnect supervisor (localhost only
     plan.args.unshift(`--servercert=${certificatePublicKeyPin(raw, [digest])}`)
     fs.writeFileSync(path.join(dir, 'job.json'), JSON.stringify({ ...plan, bin }))
     fs.writeFileSync(path.join(dir, 'heartbeat'), '')
+    const heartbeat = setInterval(() => fs.utimesSync(path.join(dir, 'heartbeat'), new Date(), new Date()), 250)
     const child = startSupervisor(dir)
     child.stdout.resume()
     child.stderr.resume()
@@ -99,6 +134,7 @@ describe.skipIf(!available)('real Windows OpenConnect supervisor (localhost only
       expect(fs.existsSync(path.join(dir, 'exit-code'))).toBe(true)
     } finally {
       clearTimeout(timer)
+      clearInterval(heartbeat)
       server.closeAllConnections()
       await new Promise<void>(resolve => server.close(() => resolve()))
       for (const name of fs.readdirSync(dir)) fs.unlinkSync(path.join(dir, name))

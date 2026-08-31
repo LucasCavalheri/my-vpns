@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$SessionDir, [string]$TestClient)
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $jobFile = Join-Path $SessionDir 'job.json'
 $exitFile = Join-Path $SessionDir 'exit-code'
 $outFile = Join-Path $SessionDir 'stdout.log'
@@ -7,7 +8,45 @@ $errFile = Join-Path $SessionDir 'stderr.log'
 $vpnProcess = $null
 $result = 1
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8
+$splitGroups = @()
+$networkReady = $false
+$connected = $false
+$authFailed = $false
+$terminal = $false
+$dnsReady = $false
+$lastHealthCheck = [DateTime]::MinValue
+$readyAt = $null
+$networkScriptPath = Join-Path $PSScriptRoot 'windows-network.ps1'
 function Log-Error([string]$text) { [IO.File]::AppendAllText($errFile, "ERROR: $text`n", $utf8) }
+function Write-Status([string]$phase, [string]$message = '') {
+    $status = @{ phase=$phase; message=$message; time=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() } | ConvertTo-Json -Compress
+    [IO.File]::WriteAllText((Join-Path $SessionDir 'status.json'), $status, $utf8)
+}
+function Save-SplitDns {
+    $file = Join-Path $SessionDir 'split-dns.json'
+    [IO.File]::WriteAllText($file, (ConvertTo-Json -InputObject @($script:splitGroups) -Depth 5 -Compress), $utf8)
+}
+function Write-ClientLine([string]$line, [string]$file) {
+    if ($line -match '^(Microsoft \(R\) Windows Script Host|Copyright \(C\) Microsoft Corporation)') { return }
+    if ($line -eq 'MYVPNS_NETWORK_READY') { $script:networkReady=$true; $script:readyAt=[DateTime]::UtcNow }
+    if ($line -match '^WARNING: Got split-DNS domains (.+) \(not yet implemented\)$') {
+        $domains = @($Matches[1] -split ',' | ForEach-Object { $_.Trim().TrimEnd('.').ToLowerInvariant() })
+        $script:splitGroups += @{ domains=$domains; servers=@() }
+        Save-SplitDns
+    } elseif ($line -match '^WARNING: Got split-DNS server ([0-9.]+) \(not yet implemented\)$' -and $script:splitGroups.Count) {
+        $script:splitGroups[-1].servers += $Matches[1]
+        Save-SplitDns
+    }
+    if ($line -match 'Invalid credentials|Authentication failed|User input required|Cookie was rejected by server') { $script:authFailed=$true }
+    if ($line -match 'Cookie was rejected by server|Dead peer detected|DTLS.*dead peer|Failed to reconnect|Session authentication expired|Server terminated|VPN session ended') {
+        $script:terminal=$true
+        $script:connected=$false
+        Write-Status 'disconnected' $line
+        [IO.File]::AppendAllText($outFile, "MYVPNS_TUNNEL_DOWN: $line`n", $utf8)
+    }
+    [IO.File]::AppendAllText($file, "$line`n", $utf8)
+}
 function Quote-Argument([string]$value) {
     # CommandLineToArgvW quoting, including trailing backslashes and quotes.
     return '"' + [regex]::Replace([regex]::Replace($value, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
@@ -31,7 +70,7 @@ try {
             if ([IO.Path]::GetFullPath($arg.Substring(9)) -ne [IO.Path]::GetFullPath($networkScript)) { throw 'Only the bundled VPN network script is allowed.' }
             continue
         }
-        if ($arg -notmatch '^(--protocol=fortinet|--passwd-on-stdin|--non-inter|--disable-ipv6|--reconnect-timeout=1|--user=.+|--usergroup=.+|--servercert=pin-sha256:[A-Za-z0-9+/]+=*|--interface=MyVPNs-[A-Za-z0-9]+|--cafile=.+|--certificate=.+|--sslkey=.+|https://[^\s]+)$') { throw 'Unsupported client argument.' }
+        if ($arg -notmatch '^(--protocol=fortinet|--passwd-on-stdin|--non-inter|--disable-ipv6|--reconnect-timeout=1|--force-dpd=10|--user=.+|--usergroup=.+|--servercert=pin-sha256:[A-Za-z0-9+/]+=*|--interface=MyVPNs-[A-Za-z0-9]+|--cafile=.+|--certificate=.+|--sslkey=.+|https://[^\s]+)$') { throw 'Unsupported client argument.' }
         $validatedArgs += [string]$arg
     }
     $validatedArgs = @("--script=$networkScript") + $validatedArgs
@@ -106,6 +145,12 @@ public static class VpnConsole {
     $info.EnvironmentVariables['MYVPNS_SESSION_DIR'] = $SessionDir
     $info.EnvironmentVariables['MYVPNS_SET_DNS'] = [int][bool]$job.setDns
     $info.EnvironmentVariables['MYVPNS_SET_ROUTES'] = [int][bool]$job.setRoutes
+    if ($job.healthHost) {
+        $healthIp = [Net.IPAddress]::Parse($job.healthHost)
+        if ($healthIp.AddressFamily -ne 'InterNetwork' -or [int]$job.healthPort -lt 1 -or [int]$job.healthPort -gt 65535) { throw 'Invalid VPN health-check target.' }
+        $info.EnvironmentVariables['MYVPNS_HEALTH_HOST'] = $healthIp.ToString()
+        $info.EnvironmentVariables['MYVPNS_HEALTH_PORT'] = [string][int]$job.healthPort
+    }
     $vpnProcess = New-Object System.Diagnostics.Process
     $vpnProcess.StartInfo = $info
     [void]$vpnProcess.Start()
@@ -118,30 +163,48 @@ public static class VpnConsole {
     $errTask = $vpnProcess.StandardError.ReadLineAsync()
     $stoppedAt = $null
     $startedAt = [DateTime]::UtcNow
-    $connected = $false
-    $authFailed = $false
+    Write-Status 'connecting'
     while (!$vpnProcess.HasExited -or $null -ne $outTask -or $null -ne $errTask) {
         if ($null -ne $outTask -and $outTask.IsCompleted) {
             $line = $outTask.GetAwaiter().GetResult()
             if ($null -eq $line) { $outTask = $null } else {
-                if ($line -eq 'MYVPNS_TUNNEL_UP') { $connected = $true }
-                if ($line -match 'Invalid credentials|Authentication failed|User input required') { $authFailed = $true }
-                [IO.File]::AppendAllText($outFile, "$line`n", $utf8)
+                Write-ClientLine $line $outFile
                 $outTask = $vpnProcess.StandardOutput.ReadLineAsync()
             }
         }
         if ($null -ne $errTask -and $errTask.IsCompleted) {
             $line = $errTask.GetAwaiter().GetResult()
             if ($null -eq $line) { $errTask = $null } else {
-                if ($line -eq 'MYVPNS_TUNNEL_UP') { $connected = $true }
-                if ($line -match 'Invalid credentials|Authentication failed|User input required') { $authFailed = $true }
-                [IO.File]::AppendAllText($errFile, "$line`n", $utf8)
+                Write-ClientLine $line $errFile
                 $errTask = $vpnProcess.StandardError.ReadLineAsync()
             }
         }
         if (!$vpnProcess.HasExited) {
+            if ($networkReady -and !$terminal -and !$stoppedAt -and (([DateTime]::UtcNow - $lastHealthCheck).TotalSeconds -ge 3)) {
+                $lastHealthCheck = [DateTime]::UtcNow
+                if (!$dnsReady) {
+                    $dnsResult = & $networkScriptPath -Action ready -SessionDir $SessionDir
+                    if ($dnsResult.ok) {
+                        $dnsReady=$true
+                        if ($dnsResult.splitDnsRules) { [IO.File]::AppendAllText($outFile, "VPN split-DNS configured and verified: $($dnsResult.splitDnsRules) domain policy rule(s).`n", $utf8) }
+                    } else { Log-Error $dnsResult.message; $terminal=$true }
+                }
+                if ($dnsReady) {
+                    $health = & $networkScriptPath -Action check -SessionDir $SessionDir
+                    if ($health.ok) {
+                        Write-Status 'connected'
+                        if (!$connected) { [IO.File]::AppendAllText($outFile, "MYVPNS_TUNNEL_UP`n", $utf8); $connected=$true }
+                    } elseif ($connected -or (([DateTime]::UtcNow - $readyAt).TotalSeconds -gt 15)) {
+                        Log-Error $health.message
+                        $terminal=$true
+                        $connected=$false
+                        Write-Status 'disconnected' $health.message
+                        [IO.File]::AppendAllText($outFile, "MYVPNS_TUNNEL_DOWN: $($health.message)`n", $utf8)
+                    }
+                }
+            }
             $heartbeat = Get-Item -LiteralPath (Join-Path $SessionDir 'heartbeat') -ErrorAction SilentlyContinue
-            $orphan = $authFailed -or !$heartbeat -or (([DateTime]::UtcNow - $heartbeat.LastWriteTimeUtc).TotalSeconds -gt 15)
+            $orphan = $authFailed -or $terminal -or !$heartbeat -or (([DateTime]::UtcNow - $heartbeat.LastWriteTimeUtc).TotalSeconds -gt 15)
             if (!$connected -and (([DateTime]::UtcNow - $startedAt).TotalSeconds -gt 180)) { $orphan = $true }
             if (!$stoppedAt -and ($orphan -or (Test-Path -LiteralPath (Join-Path $SessionDir 'stop')))) {
                 [VpnConsole]::Stop()
@@ -158,6 +221,7 @@ public static class VpnConsole {
     $result = $vpnProcess.ExitCode
 } catch { Log-Error $_.Exception.Message }
 finally {
+    Write-Status 'disconnected'
     if ($vpnProcess -and !$vpnProcess.HasExited) {
         [VpnConsole]::Stop()
         if (!$vpnProcess.WaitForExit(12000)) { $vpnProcess.Kill(); $vpnProcess.WaitForExit() }

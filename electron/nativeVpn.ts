@@ -4,6 +4,7 @@ import { promisify } from 'node:util'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { StringDecoder } from 'node:string_decoder'
 import { buildOpenConnectPlan, confEntries, resolveServerPin } from './openconnect'
 import { findVpnBinary, helperPath } from './platform'
 
@@ -12,7 +13,22 @@ export const powershellPath = path.win32.join(process.env.SystemRoot || 'C:\\Win
 export function psQuote(text: string): string { return "'" + text.replaceAll("'", "''") + "'" }
 export function shQuote(text: string): string { return "'" + text.replaceAll("'", "'\\''") + "'" }
 export function encodedPowerShell(script: string): string[] {
-  return ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')]
+  const prelude = "$ProgressPreference='SilentlyContinue'; [Console]::OutputEncoding=New-Object Text.UTF8Encoding($false); "
+  return ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(prelude + script, 'utf16le').toString('base64')]
+}
+
+export function preventsReconnect(line: string, pinned = false): boolean {
+  if (pinned && /^Server certificate verify failed: signer not found$/i.test(line)) return false
+  return /invalid credentials|authentication failed|could not authenticate|user input required|cookie was rejected|reconnect-after-drop is not allowed|certificate.*(failed|mismatch)|certificate does not match/i.test(line)
+}
+
+export function validatedNativeStatus(raw: string, now = Date.now()): { phase: 'connected' | 'disconnected' | 'connecting'; message: string } {
+  const status = JSON.parse(raw)
+  if (!['connected', 'disconnected', 'connecting'].includes(status.phase) || !Number.isFinite(status.time)) throw new Error('Invalid supervisor status.')
+  if (status.phase === 'connected' && (now - status.time > 15000 || status.time > now + 5000)) {
+    return { phase: 'disconnected', message: 'VPN supervisor health checks stopped responding.' }
+  }
+  return { phase: status.phase, message: typeof status.message === 'string' ? status.message : '' }
 }
 
 export async function secureDirectory(dir: string): Promise<void> {
@@ -33,6 +49,10 @@ export class NativeVpnSession extends EventEmitter {
   private poll: NodeJS.Timeout | null = null
   private offsets = new Map<string, number>()
   private pending = new Map<string, string>()
+  private decoders = new Map<string, StringDecoder>()
+  private pinned = false
+  private phase = 'connecting'
+  private lastHealthy = 0
   private stopping = false
   private finished = false
   private done: Promise<void>
@@ -68,7 +88,11 @@ export class NativeVpnSession extends EventEmitter {
         const plan = buildOpenConnectPlan(raw)
         const pin = await resolveServerPin(plan)
         if (this.stopping) { this.finish(0); return }
-        if (pin) plan.args.unshift(`--servercert=${pin}`)
+        if (pin) {
+          plan.args.unshift(`--servercert=${pin}`)
+          this.pinned = true
+          this.emit('line', 'TLS: trusted-cert SHA256 verified; OpenConnect will enforce the matching public-key pin. An unknown-CA warning does not disable this verification.')
+        }
         // A dedicated interface allows independent simultaneous connections.
         plan.args.unshift(`--interface=MyVPNs-${path.basename(this.dir).slice(-6)}`)
         plan.args.unshift(`--script=${helperPath('vpnc-script-win.js')}`)
@@ -95,6 +119,7 @@ export class NativeVpnSession extends EventEmitter {
       this.poll = setInterval(() => {
         try { fs.utimesSync(heartbeat, new Date(), new Date()) } catch { /* helper completed */ }
         this.readLogs()
+        this.readStatus()
       }, 250)
       this.launcher = spawn(command, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       this.canReconnect = true
@@ -133,15 +158,39 @@ export class NativeVpnSession extends EventEmitter {
           const count = fs.readSync(fd, bytes, 0, bytes.length, offset)
           fs.closeSync(fd)
           this.offsets.set(name, offset + count)
-          const lines = ((this.pending.get(name) || '') + bytes.subarray(0, count).toString('utf8')).split(/\r?\n/)
+          const decoder = this.decoders.get(name) || new StringDecoder('utf8')
+          this.decoders.set(name, decoder)
+          const lines = ((this.pending.get(name) || '') + decoder.write(bytes.subarray(0, count))).split(/\r?\n/)
           this.pending.set(name, lines.pop() || '')
           for (const line of lines) {
-            if (/invalid credentials|authentication failed|could not authenticate|user input required|certificate.*(failed|mismatch)/i.test(line)) this.canReconnect = false
+            if (preventsReconnect(line, this.pinned)) this.canReconnect = false
+            if (line.includes('reconnect-after-drop is not allowed')) this.emit('line', 'VPN server forbids reconnect-after-drop; automatic retry is disabled for this session. A manual connection will authenticate again.')
             if (line.trim()) this.emit('line', line.trim())
           }
         }
         if (flush && this.pending.get(name)) { this.emit('line', this.pending.get(name)); this.pending.delete(name) }
       } catch { /* logs appear after elevation */ }
+    }
+  }
+
+  private readStatus(): void {
+    if (process.platform !== 'win32' || this.finished) return
+    let status: ReturnType<typeof validatedNativeStatus>
+    try {
+      const raw = fs.readFileSync(path.join(this.dir, 'status.json'), 'utf8')
+      status = validatedNativeStatus(raw)
+      if (status.phase === 'connected') this.lastHealthy = Date.now()
+    } catch {
+      // A read can race a status write; tolerate it only while the last good
+      // report is fresh. A hung/dead supervisor must not leave a green UI.
+      if (!this.lastHealthy || Date.now() - this.lastHealthy <= 15000) return
+      status = { phase: 'disconnected', message: 'VPN supervisor status is unavailable.' }
+    }
+    if (status.phase === this.phase) return
+    this.phase = status.phase
+    this.emit('status', status)
+    if (status.phase === 'disconnected' && !this.stopping) {
+      void this.stop()
     }
   }
 
@@ -152,7 +201,7 @@ export class NativeVpnSession extends EventEmitter {
     this.readLogs(true)
     // Only remove known files in our unique session directory; never recurse.
     if (this.dir) {
-      for (const name of ['job.json', 'profile.conf', 'heartbeat', 'stop', 'exit-code', 'stdout.log', 'stderr.log']) {
+      for (const name of ['job.json', 'profile.conf', 'heartbeat', 'stop', 'exit-code', 'stdout.log', 'stderr.log', 'status.json', 'split-dns.json']) {
         try { fs.unlinkSync(path.join(this.dir, name)) } catch { /* best effort */ }
       }
       try { fs.rmdirSync(this.dir) } catch { /* preserve unexpected files */ }

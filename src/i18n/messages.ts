@@ -75,6 +75,9 @@ export type MessageKey =
   | 'form.extraOptions'
   | 'form.persistent'
   | 'form.persistentHint'
+  | 'form.healthHost'
+  | 'form.healthPort'
+  | 'form.healthHint'
   | 'form.setDns'
   | 'form.setRoutes'
   | 'form.save'
@@ -174,6 +177,9 @@ const en: Dict = {
   'form.extraOptions': '{count} additional imported options are preserved. Unsupported options will be reported before connecting.',
   'form.persistent': 'Persistent (sec)',
   'form.persistentHint': '0 = off · reconnect interval used by openfortivpn',
+  'form.healthHost': 'Internal service IPv4',
+  'form.healthPort': 'Service TCP port',
+  'form.healthHint': 'Optional · Windows validates this service through the VPN before showing connected and while the tunnel is active.',
   'form.setDns': 'set-dns',
   'form.setRoutes': 'set-routes',
   'form.save': 'Save profile',
@@ -272,6 +278,9 @@ const ptBR: Dict = {
   'form.extraOptions': '{count} opções adicionais importadas serão preservadas. Opções incompatíveis serão informadas antes da conexão.',
   'form.persistent': 'Persistent (seg)',
   'form.persistentHint': '0 = off · intervalo de reconexão do openfortivpn',
+  'form.healthHost': 'IPv4 do serviço interno',
+  'form.healthPort': 'Porta TCP do serviço',
+  'form.healthHint': 'Opcional · no Windows, valida o serviço pela VPN antes de mostrar conectada e enquanto o túnel estiver ativo.',
   'form.setDns': 'set-dns',
   'form.setRoutes': 'set-routes',
   'form.save': 'Salvar perfil',
